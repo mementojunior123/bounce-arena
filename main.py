@@ -1,6 +1,15 @@
+# /// script
+# dependencies = [
+# "pygame-ce",
+# "cffi",
+# "pymunk",
+# ]
+# ///
+
 import pygame
 import asyncio
 import traceback
+import pymunk
 pygame.init()
 
 GAME_ICON = pygame.image.load('assets/graphics/icon.png')

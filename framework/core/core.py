@@ -51,7 +51,9 @@ class Core:
 
         self.active_fingers : dict[int, tuple[float, float]] = {}
         self.dt : float = 1
+        self.MAX_DT : float = 5
         self.last_dt_measurment : float = 0
+        self.frametime : float = 1 / 60
 
         self.settings = Settings()
         self.bg_manager = BgManager(self)
@@ -188,7 +190,8 @@ class Core:
             self.last_dt_measurment = perf_counter()
         else:
             mark = perf_counter()
-            self.dt = (mark - self.last_dt_measurment) * target_fps
+            self.frametime = mark - self.last_dt_measurment
+            self.dt = min(self.frametime * target_fps, self.MAX_DT)
             self.last_dt_measurment = mark
     
     def set_debug_message(self, text : str):

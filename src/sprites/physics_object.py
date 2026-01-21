@@ -4,6 +4,7 @@ from framework.core.core import core_object
 
 from framework.utils.animation import Animation
 from framework.utils.pivot_2d import Pivot2D
+from framework.utils.helpers import ColorType
 import pymunk
 
 def create_test_rect(w : int, h : int, pos : pygame.Vector2, color = "Red") -> tuple[pymunk.Body, pygame.Surface]:
@@ -33,6 +34,24 @@ def create_test_player(w : int, h : int, pos : pygame.Vector2, color = "Red") ->
         s.cache_bb()
     new_surf = pygame.Surface((w, h))
     new_surf.fill(color)
+
+    return new_body, new_surf
+
+def create_test_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey : ColorType|None=(0, 255, 0)) -> tuple[pymunk.Body, pygame.Surface]:
+    new_body : pymunk.Body = pymunk.Body(50, 30)
+    new_body.moment = pymunk.moment_for_circle(new_body.mass, 0, r)
+    new_shape = pymunk.shapes.Circle(new_body, r)
+    new_shape.elasticity = 0.8
+    new_shape.friction = 0.5
+    new_body.position = tuple(pos)
+    for s in new_body.shapes:
+        s.cache_bb()
+    new_surf = pygame.Surface((r * 2, r * 2))
+
+    new_surf.set_colorkey(colorkey)
+    new_surf.fill(colorkey)
+    pygame.draw.circle(new_surf, color, (r, r), r)
+    pygame.draw.line(new_surf, "Red" if color != "Red" else "Blue", (r, r), (r, 0), width=r // 4 if r // 4 > 0 else 1)
 
     return new_body, new_surf
 
@@ -111,7 +130,7 @@ class BasePhysicsObject(Sprite, sprite_count = 0):
     def draw(self, display : pygame.Surface):
         super().draw(display)
 
-class BasicPhysicsObject(BasePhysicsObject, sprite_count = 2):
+class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
     
     test_image : pygame.Surface = pygame.surface.Surface(IMAGE_SIZE)
@@ -148,7 +167,7 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 2):
     def draw(self, display : pygame.Surface):
         super().draw(display)
 
-class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 2):
+class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def __init__(self) -> None:
         super().__init__()
         pass
@@ -190,7 +209,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 2):
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed * delta), self.sim_body.position)
         if angular_velocity:
-            self.sim_body.angle += angular_velocity
+            self.sim_body.angular_velocity = angular_velocity * 1
         else:
             pass
             #self.sim_body.angular_velocity = 0

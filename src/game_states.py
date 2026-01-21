@@ -62,20 +62,29 @@ class NormalGameState(GameState):
             if event.key == pygame.K_p:
                 self.pause()
 
-class PhysicsTestGameState(GameState):
+class PhysicsTestGameState(NormalGameState):
     SIMULATION_STEP_COUNT : int = 1
     def __init__(self, game_object : 'Game'):
         self.game = game_object
         self.simulation_space : pymunk.Space = pymunk.Space()
         self.simulation_space.gravity = (0, 10)
 
-        new_body, new_image = src.sprites.physics_object.create_test_player(20, 20, (480, 270), "Blue")
+        new_body, new_image = src.sprites.physics_object.create_test_ball(20, (480, 270), "Blue")
         self.simulation_space.add(new_body, *new_body.shapes)
         PlayerPhysicsObject.spawn(new_body, new_image)
 
         ground_body, ground_image = src.sprites.physics_object.create_test_ground(960, 20, (480, 500), "Black")
         self.simulation_space.add(ground_body, *ground_body.shapes)
         BasicPhysicsObject.spawn(ground_body, ground_image)
+
+        roof_body, roof_image = src.sprites.physics_object.create_test_ground(960, 20, (480, -20), "Black")
+        self.simulation_space.add(roof_body, *roof_body.shapes)
+        BasicPhysicsObject.spawn(roof_body, roof_image)
+
+        for x in (0, 960):
+            wall_body, wall_image = src.sprites.physics_object.create_test_ground(20, 540, (x, 270), "Black")
+            self.simulation_space.add(wall_body, *wall_body.shapes)
+            BasicPhysicsObject.spawn(wall_body, wall_image)
     
     @staticmethod
     def on_collision(arbiter : pymunk.Arbiter, sim_space : pymunk.Space, data : Any):

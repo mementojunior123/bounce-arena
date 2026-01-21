@@ -7,7 +7,7 @@ from framework.utils.pivot_2d import Pivot2D
 from framework.utils.helpers import ColorType
 import pymunk
 
-def create_test_rect(w : int, h : int, pos : pygame.Vector2, color = "Red") -> tuple[pymunk.Body, pygame.Surface]:
+def create_test_rect(w : int, h : int, pos : pygame.Vector2, color = "Red") -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface]:
     hw, hh = w // 2, h // 2
     new_body : pymunk.Body = pymunk.Body(50, 30)
     points = [(-hw, -hh), (-hw, hh), (hw, hh), (hw, -hh)]
@@ -19,9 +19,9 @@ def create_test_rect(w : int, h : int, pos : pygame.Vector2, color = "Red") -> t
     new_surf = pygame.Surface((w, h))
     new_surf.fill(color)
 
-    return new_body, new_surf
+    return new_body, [new_shape], new_surf
 
-def create_test_player(w : int, h : int, pos : pygame.Vector2, color = "Red") -> tuple[pymunk.Body, pygame.Surface]:
+def create_test_player(w : int, h : int, pos : pygame.Vector2, color = "Red") -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface]:
     hw, hh = w // 2, h // 2
     new_body : pymunk.Body = pymunk.Body(50, 30)
     points = [(-hw, -hh), (-hw, hh), (hw, hh), (hw, -hh)]
@@ -35,9 +35,9 @@ def create_test_player(w : int, h : int, pos : pygame.Vector2, color = "Red") ->
     new_surf = pygame.Surface((w, h))
     new_surf.fill(color)
 
-    return new_body, new_surf
+    return new_body, [new_shape], new_surf
 
-def create_test_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey : ColorType|None=(0, 255, 0)) -> tuple[pymunk.Body, pygame.Surface]:
+def create_test_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey : ColorType|None=(0, 255, 0)) -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface]:
     new_body : pymunk.Body = pymunk.Body(50, 30)
     new_body.moment = pymunk.moment_for_circle(new_body.mass, 0, r)
     new_shape = pymunk.shapes.Circle(new_body, r)
@@ -47,19 +47,18 @@ def create_test_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey : Co
     for s in new_body.shapes:
         s.cache_bb()
     new_surf = pygame.Surface((r * 2, r * 2))
-
     new_surf.set_colorkey(colorkey)
     new_surf.fill(colorkey)
     pygame.draw.circle(new_surf, color, (r, r), r)
     pygame.draw.line(new_surf, "Red" if color != "Red" else "Blue", (r, r), (r, 0), width=r // 4 if r // 4 > 0 else 1)
 
-    return new_body, new_surf
+    return new_body, [new_shape], new_surf
 
 def ignore_gravity(body, gravity, damping, dt):
     pymunk.Body.update_velocity(body, (0, 0), damping, dt)
 
 
-def create_test_ground(w : int, h : int, pos : pygame.Vector2, color = "Black") -> tuple[pymunk.Body, pygame.Surface]:
+def create_test_ground(w : int, h : int, pos : pygame.Vector2, color = "Black") -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface]:
     hw, hh = w // 2, h // 2
     new_body : pymunk.Body = pymunk.Body(500, 30, pymunk.Body.STATIC)
     points = [(-hw, -hh), (-hw, hh), (hw, hh), (hw, -hh)]
@@ -72,11 +71,10 @@ def create_test_ground(w : int, h : int, pos : pygame.Vector2, color = "Black") 
     new_body.velocity_func = ignore_gravity
     for s in new_body.shapes:
         s.cache_bb()
-
     new_surf = pygame.Surface((w, h))
     new_surf.fill(color)
 
-    return new_body, new_surf
+    return new_body, [new_shape], new_surf
 
 class BasePhysicsObject(Sprite, sprite_count = 0):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)

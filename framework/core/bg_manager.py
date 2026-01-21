@@ -173,7 +173,7 @@ class BgManager:
         for name, path, vol in sound_list:
             self.load_sound(path, vol, name)
             path_list.append(path)
-        if self.core.is_web():
+        if self.core.is_web() and self.USE_WEB_ENGINE:
             self.core.run_js_source_file('make_web_channel', {
                 "CHANNEL_COUNT" : str(BgManager.MAX_CHANNEL_COUNT),
                 "PATH_LIST" : str(path_list)

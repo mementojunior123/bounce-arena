@@ -10,6 +10,7 @@ import pygame
 import asyncio
 import traceback
 import pymunk
+print(pymunk.version)
 pygame.init()
 
 GAME_ICON = pygame.image.load('assets/graphics/icon.png')
@@ -27,7 +28,6 @@ core = core_object
 core.init(window)
 core.FPS = 120
 if core.is_web(): core.setup_web(method=2)
-
 pygame.display.set_caption(GAME_TITLE)
 
 from framework.game.sprite import Sprite

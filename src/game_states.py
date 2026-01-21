@@ -69,39 +69,39 @@ class PhysicsTestGameState(NormalGameState):
         self.simulation_space : pymunk.Space = pymunk.Space()
         self.simulation_space.gravity = (0, 10)
 
-        new_body, new_image = src.sprites.physics_object.create_test_ball(20, (480, 270), "Blue")
-        self.simulation_space.add(new_body, *new_body.shapes)
+        new_body, shapes, new_image = src.sprites.physics_object.create_test_ball(20, (480, 270), "Blue")        
+        self.simulation_space.add(new_body, *shapes)
         PlayerPhysicsObject.spawn(new_body, new_image)
 
-        ground_body, ground_image = src.sprites.physics_object.create_test_ground(960, 20, (480, 500), "Black")
-        self.simulation_space.add(ground_body, *ground_body.shapes)
+        ground_body, shapes, ground_image = src.sprites.physics_object.create_test_ground(960, 20, (480, 500), "Black")    
+        self.simulation_space.add(ground_body, *shapes)
         BasicPhysicsObject.spawn(ground_body, ground_image)
 
-        roof_body, roof_image = src.sprites.physics_object.create_test_ground(960, 20, (480, -20), "Black")
-        self.simulation_space.add(roof_body, *roof_body.shapes)
+        roof_body, shapes, roof_image = src.sprites.physics_object.create_test_ground(960, 20, (480, -20), "Black")
+        self.simulation_space.add(roof_body, *shapes)
         BasicPhysicsObject.spawn(roof_body, roof_image)
 
         for x in (0, 960):
-            wall_body, wall_image = src.sprites.physics_object.create_test_ground(20, 540, (x, 270), "Black")
-            self.simulation_space.add(wall_body, *wall_body.shapes)
+            wall_body, shapes, wall_image = src.sprites.physics_object.create_test_ground(20, 540, (x, 270), "Black")
+            self.simulation_space.add(wall_body, *shapes)
             BasicPhysicsObject.spawn(wall_body, wall_image)
     
     @staticmethod
     def on_collision(arbiter : pymunk.Arbiter, sim_space : pymunk.Space, data : Any):
-        print(arbiter.bodies)
+        pass
 
     def main_logic(self, delta : float):
         for sprite in BasePhysicsObject.active_elements:
             sprite.before_sim(delta)
-
-        for i in range(self.SIMULATION_STEP_COUNT):
+        step_count : int = round(self.SIMULATION_STEP_COUNT * delta * 2)
+        for i in range(step_count):
             for sprite in BasePhysicsObject.active_elements:
-                sprite.before_step(delta, i, self.SIMULATION_STEP_COUNT)
+                sprite.before_step(delta, i, step_count)
 
-            self.simulation_space.step(delta / 5 / self.SIMULATION_STEP_COUNT)
+            self.simulation_space.step(delta / 5 / step_count)
 
             for sprite in BasePhysicsObject.active_elements:
-                sprite.after_step(delta, i, self.SIMULATION_STEP_COUNT)
+                sprite.after_step(delta, i, step_count)
 
         for sprite in BasePhysicsObject.active_elements:
             sprite.post_sim(delta)

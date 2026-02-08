@@ -201,16 +201,21 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if keyboard_map[pygame.K_w]:
             move_vector += pygame.Vector2(0, -5)
         if keyboard_map[pygame.K_q]:
-            angular_velocity += -5
+            angular_velocity += -1
         if keyboard_map[pygame.K_e]:
-            angular_velocity += 5
+            angular_velocity += 1
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed * delta), self.sim_body.position)
         if angular_velocity:
-            self.sim_body.angular_velocity = angular_velocity * 1
+            self.sim_body.angular_velocity = angular_velocity * 30
         else:
             pass
-            #self.sim_body.angular_velocity = 0
+            self.sim_body.angular_velocity = 0
+    
+    def apply_propulsion(self):
+        force : float = 2500
+        direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
+        self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position)
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
@@ -224,3 +229,19 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
+    
+    def handle_keydown_event(self, event : pygame.Event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                self.apply_propulsion()
+    
+    @classmethod
+    def receive_keydown_event(cls, event : pygame.Event):
+        for element in cls.active_elements:
+            element.handle_keydown_event(event)
+
+def make_connections():
+    core_object.event_manager.bind(pygame.KEYDOWN, PlayerPhysicsObject.receive_keydown_event)
+
+def remove_connections():
+    core_object.event_manager.unbind(pygame.KEYDOWN, PlayerPhysicsObject.receive_keydown_event)

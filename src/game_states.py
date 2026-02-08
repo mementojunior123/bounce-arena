@@ -85,7 +85,9 @@ class PhysicsTestGameState(NormalGameState):
             wall_body, shapes, wall_image = src.sprites.physics_object.create_test_ground(20, 540, (x, 270), "Black")
             self.simulation_space.add(wall_body, *shapes)
             BasicPhysicsObject.spawn(wall_body, wall_image)
-    
+            
+        src.sprites.physics_object.make_connections()
+
     @staticmethod
     def on_collision(arbiter : pymunk.Arbiter, sim_space : pymunk.Space, data : Any):
         pass
@@ -108,6 +110,9 @@ class PhysicsTestGameState(NormalGameState):
         
         Sprite.update_all_sprites(delta)
         Sprite.update_all_registered_classes(delta)
+    
+    def cleanup(self):
+        src.sprites.physics_object.remove_connections()
 
 
 class NetworkTestGameState(NormalGameState):

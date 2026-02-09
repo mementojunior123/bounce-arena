@@ -1,2 +1,6 @@
+---Early test versions---
 Version T01 (21-01-2026, 18:15):
     -Testing some stuff with pymunk physics
+
+Version T02 (08-02-2026, 19:00):
+    -Testing some more physics stuff and fixed a bug

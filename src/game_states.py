@@ -63,7 +63,7 @@ class NormalGameState(GameState):
                 self.pause()
 
 class PhysicsTestGameState(NormalGameState):
-    SIMULATION_STEP_COUNT : int = 1
+    SIMULATION_STEP_COUNT : int = 5
     def __init__(self, game_object : 'Game'):
         self.game = game_object
         self.simulation_space : pymunk.Space = pymunk.Space()
@@ -93,14 +93,14 @@ class PhysicsTestGameState(NormalGameState):
         pass
 
     def main_logic(self, delta : float):
+        TIMESCALE_FACTOR : float = 0.2
         for sprite in BasePhysicsObject.active_elements:
             sprite.before_sim(delta)
-        step_count : int = round(self.SIMULATION_STEP_COUNT * delta * 2)
+        step_count : int = max(round(self.SIMULATION_STEP_COUNT * delta), 1)
         for i in range(step_count):
             for sprite in BasePhysicsObject.active_elements:
                 sprite.before_step(delta, i, step_count)
-
-            self.simulation_space.step(delta / 5 / step_count)
+            self.simulation_space.step((delta * TIMESCALE_FACTOR) / step_count)
 
             for sprite in BasePhysicsObject.active_elements:
                 sprite.after_step(delta, i, step_count)

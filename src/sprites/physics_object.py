@@ -187,7 +187,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         cls.unpool(element)
         return element
     
-    def before_sim(self, delta : float):
+    def before_step(self, delta : float, step_index : int, step_count : int):
         keyboard_map = pygame.key.get_pressed()
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
         speed : int = 500
@@ -205,7 +205,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if keyboard_map[pygame.K_e]:
             angular_velocity += 1
         if move_vector:
-            self.sim_body.apply_force_at_world_point(tuple(move_vector * speed * delta), self.sim_body.position)
+            self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
         if angular_velocity:
             self.sim_body.angular_velocity = angular_velocity * 30
         else:
@@ -215,7 +215,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def apply_propulsion(self):
         force : float = 2500
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
-        self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position)
+        self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)

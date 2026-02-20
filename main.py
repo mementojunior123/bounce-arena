@@ -9,7 +9,7 @@
 import pygame
 import asyncio
 import traceback
-import pymunk
+import pymunk # Version 6.4.0
 print(pymunk.version)
 pygame.init()
 

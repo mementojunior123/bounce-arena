@@ -94,7 +94,7 @@ mod.then((module) => {
         const actual_key = network_key + 'recv';
         window.dispatchEvent(new CustomEvent("networkrecvdata", {"detail" : data}));
         console.log(`Received ${data}`);
-        const curr = localStorage.getItem(actual_key);
+        let curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
         localStorage.setItem(actual_key, curr + data);
     }
@@ -104,7 +104,7 @@ mod.then((module) => {
         const actual_key = network_key + 'err';
         window.dispatchEvent(new CustomEvent("networkerr", {"detail" : data}));
         console.log(data);
-        const curr = localStorage.getItem(actual_key);
+        let curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
         localStorage.setItem(actual_key, curr + data);
     }
@@ -114,7 +114,7 @@ mod.then((module) => {
         const actual_key = network_key + 'conn';
         window.dispatchEvent(new CustomEvent("networkconn", {"detail" : data}));
         console.log(data);
-        const curr = localStorage.getItem(actual_key);
+        let curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
         localStorage.setItem(actual_key, curr + data);
     }
@@ -124,7 +124,7 @@ mod.then((module) => {
         const actual_key = network_key + 'close';
         window.dispatchEvent(new CustomEvent("networkclose", {"detail" : data}));
         console.log(data);
-        const curr = localStorage.getItem(actual_key);
+        let curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
         localStorage.setItem(actual_key, curr + data);
     }
@@ -134,7 +134,7 @@ mod.then((module) => {
         const actual_key = network_key + 'dc';
         window.dispatchEvent(new CustomEvent("networkdc", {"detail" : data}));
         console.log(data);
-        const curr = localStorage.getItem(actual_key);
+        let curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
         localStorage.setItem(actual_key, curr + data);
     }

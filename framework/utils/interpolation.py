@@ -1,10 +1,10 @@
 """Module that contains multiple lerp related utility functions."""
 def compatibilty_lerp(a, b, t : float):
     try: return a + (b-a) * t 
-    except: pass
+    except Exception: pass
         
     try : return a.lerp(b, t) 
-    except: pass
+    except Exception: pass
         
     try: size_a, size_b = len(a), len(b)
     except: raise ValueError("Compatibilty checks failed")
@@ -12,14 +12,14 @@ def compatibilty_lerp(a, b, t : float):
         if size_a != size_b: raise ValueError("Size mismatch")
         
     try: return [a[i] + (b[i] - a[i]) * t for i in range(size_a)]
-    except: pass
+    except Exception: pass
         
     raise ValueError(f"Compatibilty checks failed ({a} does not match {b})")
 
 def lerp(a, b, t : float):
     try:
         return a + (b-a) * t
-    except:
+    except Exception:
         pass
 
     return [a[i] + (b[i] - a[i]) * t for i in range(2)]

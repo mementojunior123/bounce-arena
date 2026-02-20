@@ -43,7 +43,7 @@ class UiSprite:
         self.use_pivot : bool = False
         self.has_per_pixel_alpha : bool = False
         if self.surf:
-            if self.surf.get_alpha() == None: 
+            if self.surf.get_alpha() is None:
                 self.has_per_pixel_alpha = True
             else:
                 self.has_per_pixel_alpha = False

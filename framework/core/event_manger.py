@@ -13,8 +13,8 @@ class EventManger:
         exit()
     
     def bind(self, event_type : int, actions : list[EventCallback]|EventCallback, duplicate = False):
-        '''The action parameter must be a function or list of functions that accepts exactly one pygame.Event argument. 
-        Returns False if the action fails to bind.'''
+        """The action parameter must be a function or list of functions that accepts exactly one pygame.Event argument.
+        Returns False if the action fails to bind."""
         try:
             actions[0]
         except TypeError:
@@ -33,7 +33,7 @@ class EventManger:
         return True
 
     def unbind(self, event_type : int, target_actions : list[EventCallback]|EventCallback):
-        '''Returns False if event_type or target_actions is not found.'''
+        """Returns False if event_type or target_actions is not found."""
         try:
             target_actions[0]
         except TypeError:

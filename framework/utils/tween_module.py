@@ -1,4 +1,4 @@
-"I just copied roblox's homework on this one. For the better or the worse."
+"""I just copied roblox's homework on this one. For the better or the worse."""
 
 import pygame
 import framework.utils.interpolation as interpolation

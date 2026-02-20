@@ -133,16 +133,16 @@ class WebChannel:
         k : str = 'WebAudioChannel' + str(self._id) + "_" + 'busy'
         return (platform.window.localStorage.getItem(k) == "true")
     
-    def queue(arg1):
+    def queue(self, arg1):
         core_object.log("Webchannel.queue is not implemented!")
     
-    def get_queue() -> None:
+    def get_queue(self) -> None:
         core_object.log("Webchannel.get_queue is not implemented!")
     
-    def set_endevent(t=None) -> None:
+    def set_endevent(self, t=None) -> None:
         core_object.log("Webchannel.set_endevent is not implemented!")
     
-    def get_endevent() -> None:
+    def get_endevent(self) -> None:
         core_object.log("Webchannel.get_endevent is not implemented!")
     
 AnyChannel : TypeAlias = Union[pygame.mixer.Channel, WebChannel]

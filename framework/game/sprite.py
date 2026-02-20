@@ -9,7 +9,7 @@ from inspect import isclass
 CollisionGroup : TypeAlias = list['Sprite']|Type['Sprite']
 
 class Sprite:
-    '''Base class for all game objects.'''
+    """Base class for all game objects."""
     active_elements : list[Self] = []
     inactive_elements : list[Self]  = []
     linked_classes : list[Type['Sprite']] = []
@@ -132,7 +132,7 @@ class Sprite:
 
     @classmethod
     def pool(cls : Type[Self], element : Self):
-        '''Transfers an element from active to inactive state. Nothing changes if the element is already inactive.'''
+        """Transfers an element from active to inactive state. Nothing changes if the element is already inactive."""
         for linked_class in cls.linked_classes + [cls]:
             if element in linked_class.active_elements:
                 linked_class.active_elements.remove(element)         
@@ -142,7 +142,7 @@ class Sprite:
     
     @classmethod
     def unpool(cls : Type[Self], element : Self):
-        '''Transfers an element from inactive to active state. Nothing changes if the element is already active.'''
+        """Transfers an element from inactive to active state. Nothing changes if the element is already active."""
         for linked_class in cls.linked_classes + [cls]:
             if element not in linked_class.active_elements:
                 linked_class.active_elements.append(element)
@@ -152,7 +152,7 @@ class Sprite:
 
     @classmethod
     def pool_elements(cls : Type['Self']):
-        '''Pools every element of the class'''
+        """Pools every element of the class"""
         while len(cls.active_elements) > 0:
             cls.pool(cls.active_elements[0])
     
@@ -282,7 +282,7 @@ class Sprite:
         return self.rect.colliderect(other.rect)
 
     def get_colliding(self, collision_groups : list[CollisionGroup]|CollisionGroup):
-        '''Returns the first sprite colliding this sprite within collision_group or None if there arent any. Uses mask collision.'''
+        """Returns the first sprite colliding this sprite within collision_group or None if there arent any. Uses mask collision."""
         try:
             collision_groups[0]
         except TypeError:
@@ -294,7 +294,7 @@ class Sprite:
         return None
     
     def get_rect_colliding(self, collision_groups : list[CollisionGroup]|CollisionGroup):
-        '''Returns the first sprite colliding this sprite within collision_group or None if there arent any. Uses a bounding box check.'''
+        """Returns the first sprite colliding this sprite within collision_group or None if there arent any. Uses a bounding box check."""
         try:
             collision_groups[0]
         except TypeError:
@@ -306,7 +306,7 @@ class Sprite:
         return None
     
     def get_all_colliding(self, collision_groups : list[CollisionGroup]|CollisionGroup) -> list['Sprite']:
-        '''Returns all entities colliding this sprite within collision_group. Uses mask collision.'''
+        """Returns all entities colliding this sprite within collision_group. Uses mask collision."""
         try:
             collision_groups[0]
         except TypeError:
@@ -320,7 +320,7 @@ class Sprite:
         return return_val
 
     def get_all_rect_colliding(self, collision_groups : list[CollisionGroup]|CollisionGroup):
-        '''Returns all entities colliding this sprite within collision_group. Uses a bounding box check.'''
+        """Returns all entities colliding this sprite within collision_group. Uses a bounding box check."""
         try:
             collision_groups[0]
         except TypeError:

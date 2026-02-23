@@ -67,10 +67,10 @@ def create_level_geometry_object(obj : LevelGeometry, sim_space : pymunk.Space, 
             return constructor(body, surf)
         case "static_poly":
             obj : StaticPoly = obj
-            body, shapes, surf = create_static_poly(obj["points"], obj["pos"], obj["color"], 
+            body, shapes, surf, cog = create_static_poly(obj["points"], obj["pos"], obj["color"], 
                                                     obj.get('colorkey', (0, 255, 0)), obj.get("friction", 0.5), obj.get("bounciness", 0.8))
             sim_space.add(body, *shapes)
-            return constructor(body, surf)
+            return constructor(body, surf, cog)
         case _:
             raise ValueError
 
@@ -99,7 +99,7 @@ def ignore_gravity(body, gravity, damping, dt):
     pymunk.Body.update_velocity(body, (0, 0), damping, dt)
 
 def create_static_poly(points : list[tuple[int, int]], pos : list[int, int], color = "Red", colorkey : ColorType|None=(0, 255, 0),
-                     friction : float = 0.5, bounce : float = 0.8) -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface]:
+                     friction : float = 0.5, bounce : float = 0.8) -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface, pygame.Vector2]:
     left, right = min(point[0] for point in points), max(point[0] for point in points)
     top, bottom = min(point[1] for point in points), max(point[1] for point in points)
     centerx = left + (right - left) // 2
@@ -129,8 +129,9 @@ def create_static_poly(points : list[tuple[int, int]], pos : list[int, int], col
     new_surf.fill(colorkey)
 
     pygame.draw.polygon(new_surf, color, list(point - pygame.Vector2(left, top) for point in points))
-    print(new_shape.center_of_gravity)
-    return new_body, [new_shape], new_surf
+    cog_offset = center_of_gravity - (centerx, centry)
+    print(cog_offset)
+    return new_body, [new_shape], new_surf, cog_offset
 
 
 def create_static_rect(w : int, h : int, pos : pygame.Vector2, color = "Black", colorkey : ColorType|None=(0, 255, 0),

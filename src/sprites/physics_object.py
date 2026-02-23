@@ -19,7 +19,8 @@ class BasePhysicsObject(Sprite, sprite_count = 0):
         pass
 
     @classmethod
-    def spawn(cls, obj : pymunk.Body, image : pygame.Surface|None = None):
+    def spawn(cls, obj : pymunk.Body, image : pygame.Surface|None = None,
+              pivot_offest : pygame.Vector2|None = None):
         raise NotImplementedError("Cannot instanciate a base-class")
         element = cls.inactive_elements[0]
         element.sim_body = obj
@@ -70,7 +71,8 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
         pass
 
     @classmethod
-    def spawn(cls, obj : pymunk.Body, image : pygame.Surface|None = None):
+    def spawn(cls, obj : pymunk.Body, image : pygame.Surface|None = None,
+              pivot_offest : pygame.Vector2|None = None):
         element = cls.inactive_elements[0]
         element.sim_body = obj
         element.image = image or cls.test_image
@@ -81,7 +83,8 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
         element.zindex = 0
 
         element.pivot = Pivot2D(element._position, element.image, (0, 255, 0))
-        element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity)
+        element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity) + (pivot_offest or pygame.Vector2(0,0))
+        print(element.pivot.pivot_offset)
         element.current_camera = core_object.game.main_camera
         cls.unpool(element)
         return element
@@ -102,7 +105,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         pass
 
     @classmethod
-    def spawn(cls, obj : pymunk.Body, image : pygame.Surface|None = None):
+    def spawn(cls, obj : pymunk.Body, image : pygame.Surface|None = None,
+              pivot_offest : pygame.Vector2|None = None):
         element = cls.inactive_elements[0]
         element.sim_body = obj
         element.image = image or cls.test_image
@@ -113,7 +117,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.zindex = 0
 
         element.pivot = Pivot2D(element._position, element.image, (0, 255, 0))
-        element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity)
+        element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity) + (pivot_offest or pygame.Vector2(0,0))
         element.current_camera = core_object.game.main_camera
         cls.unpool(element)
         return element

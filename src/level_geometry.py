@@ -91,7 +91,6 @@ def create_dynamic_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey :
     new_surf = pygame.Surface((r * 2, r * 2))
     new_surf.set_colorkey(colorkey)
     new_surf.fill(colorkey)
-    print(color, colorkey)
     pygame.draw.circle(new_surf, color, (r, r), r)
     pygame.draw.line(new_surf, "Red" if color != "Red" else "Blue", (r, r), (r, 0), width=r // 4 if r // 4 > 0 else 1)
 

@@ -156,10 +156,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-        print(shot_origin, "-->", shot_end, "::", self.angle)
-        hits = space.segment_query(shot_origin, shot_end, 1, pymunk.ShapeFilter())
+        hits = space.segment_query(shot_origin, shot_end, 25, pymunk.ShapeFilter())
         for hit in hits:
-            #print(hit)
             if not hit.shape:
                 continue
             if hit.shape.collision_type == 1:

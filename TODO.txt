@@ -1,1 +1,1 @@
--Add an enemy AI that shoots and can get shot
+-Add enemy AI that tries to stay alive and shoots

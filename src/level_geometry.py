@@ -14,10 +14,10 @@ from math import ceil
 PhysicsObjetConstructor : TypeAlias = Callable[[pymunk.Body, pygame.Surface, pygame.Vector2|None], BasePhysicsObject]
 
 # create a struct that represents a piece of level geometry
-class LevelGeometry(TypedDict):
+class BaseLevelGeometry(TypedDict):
     object_type : Literal['static_rect', 'dynamic_ball', 'static_poly']
 
-class StaticRect(LevelGeometry):
+class StaticRect(BaseLevelGeometry):
     width : int
     height : int
     pos : list[int, int]
@@ -28,7 +28,7 @@ class StaticRect(LevelGeometry):
     friction : NotRequired[float]
     bounciness : NotRequired[float]
 
-class StaticPoly(LevelGeometry):
+class StaticPoly(BaseLevelGeometry):
     points : list[tuple[int, int]]
     pos : list[int, int]
 
@@ -39,7 +39,7 @@ class StaticPoly(LevelGeometry):
     bounciness : NotRequired[float]
 
 
-class DynamicBall(LevelGeometry):
+class DynamicBall(BaseLevelGeometry):
     radius : int
     pos : list[int, int]
 
@@ -49,9 +49,10 @@ class DynamicBall(LevelGeometry):
     friction : NotRequired[float]
     bounciness : NotRequired[float]
 
+LevelGeometry : TypeAlias = StaticRect|StaticPoly|DynamicBall
 # create functions that convert the struct into Body, Shape and Surface components
 
-def create_level_geometry_object(obj : LevelGeometry, sim_space : pymunk.Space, constructor : PhysicsObjetConstructor = BasicPhysicsObject.spawn) -> BasePhysicsObject:
+def create_level_geometry_object(obj : BaseLevelGeometry, sim_space : pymunk.Space, constructor : PhysicsObjetConstructor = BasicPhysicsObject.spawn) -> BasePhysicsObject:
     match obj["object_type"]:
         case "static_rect":
             obj : StaticRect = obj
@@ -90,6 +91,7 @@ def create_dynamic_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey :
     new_surf = pygame.Surface((r * 2, r * 2))
     new_surf.set_colorkey(colorkey)
     new_surf.fill(colorkey)
+    print(color, colorkey)
     pygame.draw.circle(new_surf, color, (r, r), r)
     pygame.draw.line(new_surf, "Red" if color != "Red" else "Blue", (r, r), (r, 0), width=r // 4 if r // 4 > 0 else 1)
 
@@ -156,12 +158,12 @@ def create_static_rect(w : int, h : int, pos : pygame.Vector2, color = "Black", 
 
     return new_body, [new_shape], new_surf
 
-test_level_geometry : list[DynamicBall|StaticRect|StaticPoly] = [
+test_level_geometry : list[LevelGeometry] = [
     {"object_type" : "static_rect", "pos" : [480, 500], "width" : 960, "height" : 20, "color" : "Black"},
     #{"object_type" : "static_rect", "pos" : [480, -20], "width" : 960, "height" : 20, "color" : "Black"},
 
     #{"object_type" : "static_rect", "pos" : [0, 270], "width" : 20, "height" : 540, "color" : "Black", "bounciness" : 2},
     #{"object_type" : "static_rect", "pos" : [960, 270], "width" : 20, "height" : 540, "color" : "Black"},
     {"object_type" : "static_poly", "pos" : [480, 270], "color" : "Black", "points" : [(-50, 50), (50, 50), (50, -50)]},
-    {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100)], "bounciness" : 4},
+    {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100)], "bounciness" : 2},
 ]

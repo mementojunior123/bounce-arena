@@ -69,9 +69,13 @@ class PhysicsTestGameState(NormalGameState):
         self.simulation_space : pymunk.Space = pymunk.Space()
         self.simulation_space.gravity = (0, 7.5)
 
-        new_body, shapes, new_image = src.level_geometry.create_dynamic_ball(20, (480, 270), "Blue")        
-        self.simulation_space.add(new_body, *shapes)
-        self.player : PlayerPhysicsObject = PlayerPhysicsObject.spawn(new_body, new_image)
+        player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9}
+        self.player : PlayerPhysicsObject = src.level_geometry.create_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
+
+        enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9}
+        self.enemy_ball : EnemyPhysicsObject = src.level_geometry.create_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)
+        for s in self.enemy_ball.sim_body.shapes:
+            s.collision_type = 1
 
         for level_geomerty in src.level_geometry.test_level_geometry:
             src.level_geometry.create_level_geometry_object(level_geomerty, self.simulation_space)
@@ -100,9 +104,12 @@ class PhysicsTestGameState(NormalGameState):
         
         Sprite.update_all_sprites(delta)
         Sprite.update_all_registered_classes(delta)
-
-        if not pygame.Rect(-200, -200, 960 + 400, 540 + 400).collidepoint(self.player.position):
+        margin : int = 50
+        inbound_rect : pygame.Rect = pygame.Rect(-margin, -margin, 960 + 2 * margin, 540 + 2 * margin)
+        if not inbound_rect.collidepoint(self.player.position):
             self.switch_to_gameover("You lose!")
+        elif not inbound_rect.collidepoint(self.enemy_ball.position):
+            self.switch_to_gameover("You win!")
 
     def switch_to_gameover(self, message : str):
         self.game.state = GameOverState(self.game, self, message)
@@ -154,11 +161,13 @@ def runtime_imports():
     import src.sprites.test_player
     from src.sprites.test_player import TestPlayer
 
-    global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject
+    global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject
     import src.sprites.physics_object
-    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject
+    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject
 
+    global LevelGeometry
     import src.level_geometry
+    from src.level_geometry import LevelGeometry
 
 
 class GameStates:

@@ -84,7 +84,6 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
 
         element.pivot = Pivot2D(element._position, element.image, (0, 255, 0))
         element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity) + (pivot_offest or pygame.Vector2(0,0))
-        print(element.pivot.pivot_offset)
         element.current_camera = core_object.game.main_camera
         cls.unpool(element)
         return element

@@ -130,7 +130,6 @@ def create_static_poly(points : list[tuple[int, int]], pos : list[int, int], col
 
     pygame.draw.polygon(new_surf, color, list(point - pygame.Vector2(left, top) for point in points))
     cog_offset = center_of_gravity - (centerx, centry)
-    print(cog_offset)
     return new_body, [new_shape], new_surf, cog_offset
 
 
@@ -159,10 +158,10 @@ def create_static_rect(w : int, h : int, pos : pygame.Vector2, color = "Black", 
 
 test_level_geometry : list[DynamicBall|StaticRect|StaticPoly] = [
     {"object_type" : "static_rect", "pos" : [480, 500], "width" : 960, "height" : 20, "color" : "Black"},
-    {"object_type" : "static_rect", "pos" : [480, -20], "width" : 960, "height" : 20, "color" : "Black"},
+    #{"object_type" : "static_rect", "pos" : [480, -20], "width" : 960, "height" : 20, "color" : "Black"},
 
-    {"object_type" : "static_rect", "pos" : [0, 270], "width" : 20, "height" : 540, "color" : "Black", "bounciness" : 2},
-    {"object_type" : "static_rect", "pos" : [960, 270], "width" : 20, "height" : 540, "color" : "Black"},
+    #{"object_type" : "static_rect", "pos" : [0, 270], "width" : 20, "height" : 540, "color" : "Black", "bounciness" : 2},
+    #{"object_type" : "static_rect", "pos" : [960, 270], "width" : 20, "height" : 540, "color" : "Black"},
     {"object_type" : "static_poly", "pos" : [480, 270], "color" : "Black", "points" : [(-50, 50), (50, 50), (50, -50)]},
-    {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100) ]},
+    {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100)], "bounciness" : 4},
 ]

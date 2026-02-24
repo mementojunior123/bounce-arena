@@ -71,7 +71,7 @@ class PhysicsTestGameState(NormalGameState):
 
         new_body, shapes, new_image = src.level_geometry.create_dynamic_ball(20, (480, 270), "Blue")        
         self.simulation_space.add(new_body, *shapes)
-        PlayerPhysicsObject.spawn(new_body, new_image)
+        self.player : PlayerPhysicsObject = PlayerPhysicsObject.spawn(new_body, new_image)
 
         for level_geomerty in src.level_geometry.test_level_geometry:
             src.level_geometry.create_level_geometry_object(level_geomerty, self.simulation_space)
@@ -100,10 +100,29 @@ class PhysicsTestGameState(NormalGameState):
         
         Sprite.update_all_sprites(delta)
         Sprite.update_all_registered_classes(delta)
+
+        if not pygame.Rect(-200, -200, 960 + 400, 540 + 400).collidepoint(self.player.position):
+            self.switch_to_gameover("You lose!")
+
+    def switch_to_gameover(self, message : str):
+        self.game.state = GameOverState(self.game, self, message)
     
     def cleanup(self):
         src.sprites.physics_object.remove_connections()
 
+class GameOverState(GameState):
+    def __init__(self, game_object : 'Game', previous : GameState, message : str = "You lose!"):
+        self.game = game_object
+        self.prev = previous
+        self.game.alert_player(message)
+        self.timer = Timer(3, self.game.game_timer.get_time)
+    
+    def main_logic(self, delta):
+        if self.timer.isover():
+            core_object.end_game()
+    
+    def cleanup(self):
+        self.prev.cleanup()
 
 class PausedGameState(GameState):
     def __init__(self, game_object : 'Game', previous : GameState):

@@ -4,3 +4,8 @@ Version T01 (21-01-2026, 18:15):
 
 Version T02 (08-02-2026, 19:00):
     -Testing some more physics stuff and fixed a bug
+
+Version T03 (23-02-2026, 19:13):
+    -Added a backend for a prop system
+    -Implemented polygon props
+    -Fixed framerate independance related issues

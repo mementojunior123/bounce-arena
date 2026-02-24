@@ -9,3 +9,8 @@ Version T03 (23-02-2026, 19:13):
     -Added a backend for a prop system
     -Implemented polygon props
     -Fixed framerate independance related issues
+
+Version T04 (24-02-2026, 11:17):
+    -Added an enemy ball
+    -Fixed a previously hidden issue with units (pymunk used radians while i wrongly assumed it was in degrees)
+    -Fixed an issue related to colorkeys

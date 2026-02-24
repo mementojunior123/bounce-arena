@@ -1,1 +1,5 @@
 -Add enemy AI that tries to stay alive and shoots
+    -When far from center of the stage, move torwards it
+    -Rotates at a constant speed
+    -Whenever it shoots, switches rotation direction
+    -Sometimes shoots at the player when it has line of sight, sometimes shoots randomly

@@ -71,6 +71,10 @@ class PhysicsTestGameState(NormalGameState):
 
         player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9}
         self.player : PlayerPhysicsObject = src.level_geometry.create_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
+        for s in self.player.sim_body.shapes:
+            s.collision_type = 2
+
+
 
         enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9}
         self.enemy_ball : EnemyPhysicsObject = src.level_geometry.create_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)

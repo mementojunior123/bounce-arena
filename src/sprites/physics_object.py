@@ -5,9 +5,11 @@ from framework.core.core import core_object
 from framework.utils.animation import Animation
 from framework.utils.pivot_2d import Pivot2D
 from framework.utils.helpers import ColorType
+from framework.utils.my_timer import Timer
 import pymunk
 
 from math import degrees
+import random
 
 class BasePhysicsObject(Sprite, sprite_count = 0):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
@@ -195,6 +197,8 @@ def remove_connections():
 class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def __init__(self) -> None:
         super().__init__()
+        self.current_direction : int
+        self.shot_timer : Timer
         pass
 
     @classmethod
@@ -212,49 +216,66 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.pivot = Pivot2D(element._position, element.image, element.image.get_colorkey() or (0, 255, 0))
         element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity) + (pivot_offest or pygame.Vector2(0,0))
         element.current_camera = core_object.game.main_camera
+
+        element.current_direction = 1
+        element.shot_timer = Timer(-1, core_object.game.game_timer.get_time)
+
         cls.unpool(element)
         return element
     
     def before_step(self, delta : float, step_index : int, step_count : int):
-        return
-        keyboard_map = pygame.key.get_pressed()
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
         speed : int = 500
-        angular_velocity : float = 0
-        if keyboard_map[pygame.K_a]:
-            move_vector += pygame.Vector2(-1, 0)
-        if keyboard_map[pygame.K_d]:
+        if self.position.x < 480 - 100:
             move_vector += pygame.Vector2(1, 0)
-        if keyboard_map[pygame.K_s]:
-            move_vector += pygame.Vector2(0, 2.5)
-        if keyboard_map[pygame.K_w]:
-            move_vector += pygame.Vector2(0, -2.5)
-        if keyboard_map[pygame.K_q]:
-            angular_velocity += -1
-        if keyboard_map[pygame.K_e]:
-            angular_velocity += 1
+        elif self.position.x > 480 + 100:
+            move_vector += pygame.Vector2(-1, 0)
+        if self.position.y < 300:
+            move_vector += pygame.Vector2(0, 1)
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
-        if angular_velocity:
-            self.sim_body.angular_velocity = angular_velocity * 2
-        else:
-            pass
-            self.sim_body.angular_velocity = 0
+        self.sim_body.angular_velocity = 0.2 * self.current_direction
+
     
     def apply_propulsion(self):
+        self.current_direction *= -1
         force : float = 2500
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
-        self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
+        self.sim_body.apply_impulse_at_world_point(tuple(direction * force * 0.65), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
+
+        shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
+        shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
+        hits = self.sim_body.space.segment_query(shot_origin, shot_end, 25, pymunk.ShapeFilter())
+        for hit in hits:
+            if not hit.shape:
+                continue
+            if hit.shape.collision_type == 2:
+                hit.shape.body.apply_impulse_at_world_point(tuple(-direction * force * 2), hit.point)
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
         self.angle = degrees(self.sim_body.angle)
     
     def update(self, delta: float):
-        pass
+        if self.shot_timer.duration < 0 and self.shot_timer.get_time() > 0.5:
+            shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
+            shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
+            hits = self.sim_body.space.segment_query(shot_origin, shot_end, 25, pymunk.ShapeFilter())
+            for hit in hits:
+                if not hit.shape:
+                    continue
+                if hit.shape.collision_type == 2:
+                    self.apply_propulsion()
+                    self.shot_timer.set_duration(random.uniform(2, 3))
+                    break
+        elif self.shot_timer.isover():
+            self.apply_propulsion()
+            self.shot_timer.set_duration(-1)
 
     def clean_instance(self):
         super().clean_instance()
+        self.current_direction = None
+        self.shot_timer = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)

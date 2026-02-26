@@ -130,14 +130,17 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.damage_taken = 0
         if pymunk.version[0] == "6":
             handler = element.sim_body.space.add_collision_handler(2, 1)
+            handler.data = {}
             handler.begin = element.on_collision_with_enemy
+            handler.separate = element.post_collision_with_enemy
         else:
-            element.sim_body.space.on_collision(2, 1, element.on_collision_with_enemy)
+            element.sim_body.space.on_collision(2, 1, element.on_collision_with_enemy, separate=element.post_collision_with_enemy, data={})
 
         cls.unpool(element)
         return element
     
     def on_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> bool:
+        data['pre_solve_damage'] = (self.damage_dealt, self.damage_taken)
         player_ball, enemy_ball = arbiter.shapes
         vec_to_enemy_norm : pymunk.Vec2d = (enemy_ball.body.position - player_ball.body.position).normalized()
         velocity_diff = (player_ball.body.velocity - enemy_ball.body.velocity)
@@ -170,8 +173,26 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.damage_taken += damage_taken
             print("Damage taken:", damage_taken, f"({self.damage_taken})")
 
-            print("----")
+        data['enemy_speed_pre_solve'] = abs_enemy_velocity
+        data['player_speed_pre_solve'] = abs_player_velocity
         return True
+    
+    def post_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
+        player_ball, enemy_ball = arbiter.shapes
+        knockback_mult_player : float = 1 + (data['pre_solve_damage'][1] / 100)
+        knockback_mult_enemy : float = 1 + (data['pre_solve_damage'][0] / 100)
+
+        before_enemy_speed = enemy_ball.body.velocity
+        before_player_speed = player_ball.body.velocity
+
+        enemy_speed_diff = before_enemy_speed - data['enemy_speed_pre_solve']
+        player_speed_diff = before_player_speed - data['player_speed_pre_solve']
+
+        enemy_ball.body.velocity = data['enemy_speed_pre_solve'] + (enemy_speed_diff * knockback_mult_enemy)
+        player_ball.body.velocity = data['player_speed_pre_solve'] + (player_speed_diff * knockback_mult_player)
+        print(before_enemy_speed.length, "-->", enemy_ball.body.velocity.length)
+        print(before_player_speed.length, "-->", player_ball.body.velocity.length)
+        print("----")
     
     def before_step(self, delta : float, step_index : int, step_count : int):
         keyboard_map = pygame.key.get_pressed()

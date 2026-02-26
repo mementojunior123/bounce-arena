@@ -179,8 +179,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def post_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
         player_ball, enemy_ball = arbiter.shapes
-        knockback_mult_player : float = 1 + (data['pre_solve_damage'][1] / 100)
-        knockback_mult_enemy : float = 1 + (data['pre_solve_damage'][0] / 100)
+        knockback_mult_player : float = 0.5 * (1 + (data['pre_solve_damage'][1] / 100))
+        knockback_mult_enemy : float = 0.5 * (1 + (data['pre_solve_damage'][0] / 100))
 
         before_enemy_speed = enemy_ball.body.velocity
         before_player_speed = player_ball.body.velocity

@@ -10,6 +10,7 @@ import pymunk
 
 from math import degrees
 import random
+from typing import Any
 
 class BasePhysicsObject(Sprite, sprite_count = 0):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
@@ -105,6 +106,8 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
 class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def __init__(self) -> None:
         super().__init__()
+        self.damage_dealt : float
+        self.damage_taken : float
         pass
 
     @classmethod
@@ -122,8 +125,53 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.pivot = Pivot2D(element._position, element.image, element.image.get_colorkey() or (0, 255, 0))
         element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity) + (pivot_offest or pygame.Vector2(0,0))
         element.current_camera = core_object.game.main_camera
+
+        element.damage_dealt = 0
+        element.damage_taken = 0
+        if pymunk.version[0] == "6":
+            handler = element.sim_body.space.add_collision_handler(2, 1)
+            handler.begin = element.on_collision_with_enemy
+        else:
+            element.sim_body.space.on_collision(2, 1, element.on_collision_with_enemy)
+
         cls.unpool(element)
         return element
+    
+    def on_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> bool:
+        player_ball, enemy_ball = arbiter.shapes
+        vec_to_enemy_norm : pymunk.Vec2d = (enemy_ball.body.position - player_ball.body.position).normalized()
+        velocity_diff = (player_ball.body.velocity - enemy_ball.body.velocity)
+        abs_player_velocity = player_ball.body.velocity
+        dot_product_dealt = vec_to_enemy_norm.dot(velocity_diff.normalized())
+        dot_product_dealt2 = vec_to_enemy_norm.dot(abs_player_velocity.normalized())
+        if dot_product_dealt < 0 or dot_product_dealt2 < 0:
+            damage_dealt = 0
+        else:
+            damage_dealt = abs_player_velocity.length_squared * dot_product_dealt * dot_product_dealt2 * 0.01
+
+        vec_to_player_norm : pymunk.Vec2d = -vec_to_enemy_norm
+        neg_velocity_diff = -velocity_diff
+        abs_enemy_velocity = enemy_ball.body.velocity
+        dot_product_taken = vec_to_player_norm.dot(neg_velocity_diff.normalized())
+        dot_product_taken2 = vec_to_player_norm.dot(abs_enemy_velocity.normalized())
+        if dot_product_taken < 0 or dot_product_taken2 < 0:
+            damage_taken = 0
+        else:
+            damage_taken = abs_enemy_velocity.length_squared * dot_product_taken * dot_product_taken2 * 0.01
+
+        if damage_dealt < 5:
+            print("Not enough damage dealt")
+        else:
+            self.damage_dealt += damage_dealt
+            print("Damage dealt:", damage_dealt, f"({self.damage_dealt})")
+        if damage_taken < 5:
+            print("Not enough damage taken")
+        else:
+            self.damage_taken += damage_taken
+            print("Damage taken:", damage_taken, f"({self.damage_taken})")
+
+            print("----")
+        return True
     
     def before_step(self, delta : float, step_index : int, step_count : int):
         keyboard_map = pygame.key.get_pressed()

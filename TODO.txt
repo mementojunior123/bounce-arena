@@ -1,5 +1,3 @@
--Implement collision groups with pymunk.ShapeFilter
 -Add a visual/projectile for the shooting mechanic
--Add a damage system:
+-Continue the damage system:
     Bullets deal a fixed amount of damage
-    Melee damage is dealt based on velocity and dot product

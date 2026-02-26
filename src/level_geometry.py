@@ -1,3 +1,9 @@
+"""
+Enemy ball : 1
+Player ball : 2
+Static geometry : 3
+"""
+
 import pygame
 from framework.game.sprite import Sprite
 from framework.core.core import core_object
@@ -16,6 +22,9 @@ PhysicsObjetConstructor : TypeAlias = Callable[[pymunk.Body, pygame.Surface, pyg
 # create a struct that represents a piece of level geometry
 class BaseLevelGeometry(TypedDict):
     object_type : Literal['static_rect', 'dynamic_ball', 'static_poly']
+    collision_category : NotRequired[int|list[int]]
+    collision_mask : NotRequired[int|list[int]]
+    collision_type : NotRequired[int|list[int]]
 
 class StaticRect(BaseLevelGeometry):
     width : int
@@ -52,24 +61,55 @@ class DynamicBall(BaseLevelGeometry):
 LevelGeometry : TypeAlias = StaticRect|StaticPoly|DynamicBall
 # create functions that convert the struct into Body, Shape and Surface components
 
+def value_to_bitmask(val : int|list[int]) -> int:
+    """
+    Bitmasks in list form start at 0.
+    """
+    if isinstance(val, int):
+        return val
+    total : int = 0
+    for v in val:
+        if not isinstance(v, int):
+            raise ValueError
+        total += 2 ** v
+    return total
+
 def create_level_geometry_object(obj : BaseLevelGeometry, sim_space : pymunk.Space, constructor : PhysicsObjetConstructor = BasicPhysicsObject.spawn) -> BasePhysicsObject:
     match obj["object_type"]:
         case "static_rect":
             obj : StaticRect = obj
             body, shapes, surf = create_static_rect(obj["width"], obj["height"], obj["pos"], obj["color"], 
                                                     obj.get('colorkey', (0, 255, 0)), obj.get("friction", 0.5), obj.get("bounciness", 0.8))
+            for shape in shapes:
+                shape.collision_type = value_to_bitmask(obj.get("collision_type", 0))
+                collision_category = value_to_bitmask(obj.get("collision_category", pymunk.ShapeFilter.ALL_CATEGORIES()))
+                collision_mask = value_to_bitmask(obj.get("collision_mask", pymunk.ShapeFilter.ALL_MASKS()))
+                shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
+
             sim_space.add(body, *shapes)
             return constructor(body, surf)
         case "dynamic_ball":
             obj : DynamicBall = obj
             body, shapes, surf = create_dynamic_ball(obj["radius"], obj["pos"], obj["color"], 
                                                      obj.get('colorkey', (0, 255, 0)), obj.get("friction", 0.5), obj.get("bounciness", 0.8))
+            for shape in shapes:
+                shape.collision_type = value_to_bitmask(obj.get("collision_type", 0))
+                collision_category = value_to_bitmask(obj.get("collision_category", pymunk.ShapeFilter.ALL_CATEGORIES()))
+                collision_mask = value_to_bitmask(obj.get("collision_mask", pymunk.ShapeFilter.ALL_MASKS()))
+                shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
+
             sim_space.add(body, *shapes)
             return constructor(body, surf)
         case "static_poly":
             obj : StaticPoly = obj
             body, shapes, surf, cog = create_static_poly(obj["points"], obj["pos"], obj["color"], 
                                                     obj.get('colorkey', (0, 255, 0)), obj.get("friction", 0.5), obj.get("bounciness", 0.8))
+            for shape in shapes:
+                shape.collision_type = value_to_bitmask(obj.get("collision_type", 0))
+                collision_category = value_to_bitmask(obj.get("collision_category", pymunk.ShapeFilter.ALL_CATEGORIES()))
+                collision_mask = value_to_bitmask(obj.get("collision_mask", pymunk.ShapeFilter.ALL_MASKS()))
+                shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
+                
             sim_space.add(body, *shapes)
             return constructor(body, surf, cog)
         case _:
@@ -158,11 +198,10 @@ def create_static_rect(w : int, h : int, pos : pygame.Vector2, color = "Black", 
     return new_body, [new_shape], new_surf
 
 test_level_geometry : list[LevelGeometry] = [
-    {"object_type" : "static_rect", "pos" : [480, 500], "width" : 960, "height" : 20, "color" : "Black"},
-    #{"object_type" : "static_rect", "pos" : [480, -20], "width" : 960, "height" : 20, "color" : "Black"},
-
-    #{"object_type" : "static_rect", "pos" : [0, 270], "width" : 20, "height" : 540, "color" : "Black", "bounciness" : 2},
-    #{"object_type" : "static_rect", "pos" : [960, 270], "width" : 20, "height" : 540, "color" : "Black"},
-    {"object_type" : "static_poly", "pos" : [480, 270], "color" : "Black", "points" : [(-50, 50), (50, 50), (50, -50)]},
-    {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100)], "bounciness" : 2},
+    {"object_type" : "static_rect", "pos" : [480, 500], "width" : 960, "height" : 20, "color" : "Black", 
+     "collision_category" : [3], "collision_mask" : [1, 2]},
+    {"object_type" : "static_poly", "pos" : [480, 270], "color" : "Black", "points" : [(-50, 50), (50, 50), (50, -50)], 
+     "collision_category" : [3], "collision_mask" : [1, 2]},
+    {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100)], "bounciness" : 2, 
+     "collision_category" : [3], "collision_mask" : [1, 2]},
 ]

@@ -69,17 +69,13 @@ class PhysicsTestGameState(NormalGameState):
         self.simulation_space : pymunk.Space = pymunk.Space()
         self.simulation_space.gravity = (0, 7.5)
 
-        player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9}
+        player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
+                                           "collision_type" : 2, "collision_category" : [2], "collision_mask" : [1, 3]}
         self.player : PlayerPhysicsObject = src.level_geometry.create_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
-        for s in self.player.sim_body.shapes:
-            s.collision_type = 2
 
-
-
-        enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9}
+        enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9,
+                                          "collision_type" : 1, "collision_category" : [1], "collision_mask" : [2, 3]}
         self.enemy_ball : EnemyPhysicsObject = src.level_geometry.create_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)
-        for s in self.enemy_ball.sim_body.shapes:
-            s.collision_type = 1
 
         for level_geomerty in src.level_geometry.test_level_geometry:
             src.level_geometry.create_level_geometry_object(level_geomerty, self.simulation_space)

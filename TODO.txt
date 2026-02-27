@@ -4,3 +4,4 @@
 -Improve the sprite and collision system:
     Improve collision handler responsability delegation
     Add a system that prevents double hits
+    Fix issues related to damage calculations and physics on different framerates

@@ -2,3 +2,7 @@
     Bullets deal a fixed amount of damage
     Bullets deal more knockback depending on damage dealt
     Improve collision handler responsability delegation
+
+-Improve the sprite and collision system:
+    Add a get_sprite(s)_by_collision_type/mask/category class method
+    Add a collision type enum

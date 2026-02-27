@@ -209,7 +209,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if dot_product_taken < 0 or dot_product_taken2 < 0:
             damage_taken = 0
         else:
-            damage_taken = abs_enemy_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01
+            damage_taken = abs_enemy_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01 * 0.4
 
         if damage_taken < 5:
             print("Not enough damage taken (player)")
@@ -222,7 +222,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def post_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> None:
         player_ball, _ = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
-        knockback_mult_player : float = 0.5 * (1 + (data['pre_solve_damage'] / 100))
+        knockback_mult_player : float = 0.5 * (0.5 + (data['pre_solve_damage'] / 100))
 
         before_player_speed = player_ball.body.velocity
 
@@ -267,7 +267,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def post_collision_with_proj_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
         player_ball, _ = arbiter.shapes
-        knockback_mult_player : float = 0.25 * (1 + (data['pre_solve_damage'] / 100))
+        knockback_mult_player : float = 0.4 * (0.5 + (data['pre_solve_damage'] / 100))
 
         before_player_speed = player_ball.body.velocity
         player_speed_diff = before_player_speed - data['player_speed_pre_solve']
@@ -412,7 +412,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if dot_product_taken < 0 or dot_product_taken2 < 0:
             damage_taken = 0
         else:
-            damage_taken = abs_opposant_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01
+            damage_taken = abs_opposant_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01 * 0.4
 
         if damage_taken < 5:
             print(f"Not enough damage taken (enemy) ({abs_opposant_velocity.length, dot_product_taken, dot_product_taken2})")
@@ -425,7 +425,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def post_collision_with_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> None:
         this_ball, opposant_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
-        knockback_mult_this : float = 0.5 * (1 + (data['pre_solve_damage'] / 100))
+        knockback_mult_this : float = 0.5 * (0.5 + (data['pre_solve_damage'] / 100))
 
         before_this_speed = this_ball.body.velocity
 
@@ -469,7 +469,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def post_collision_with_proj_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
         this_ball, _ = arbiter.shapes
-        knockback_mult_this : float = 0.25 * (1 + (data['pre_solve_damage'] / 200))
+        knockback_mult_this : float = 0.4 * (0.5 + (data['pre_solve_damage'] / 200))
 
         before_this_speed = this_ball.body.velocity
         this_speed_diff = before_this_speed - data['this_speed_pre_solve']

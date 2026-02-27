@@ -2,6 +2,8 @@
 Enemy ball : 1
 Player ball : 2
 Static geometry : 3
+Enemy projectile : 4
+Player projectile : 5
 """
 
 import pygame
@@ -14,7 +16,7 @@ from framework.utils.helpers import ColorType
 import pymunk
 
 from typing import TypedDict, Literal, Callable, TypeAlias, NotRequired
-from src.sprites.physics_object import BasePhysicsObject, PlayerPhysicsObject, BasicPhysicsObject
+from src.sprites.physics_object import BasePhysicsObject, ProjectilePhysicsObject, BasicPhysicsObject
 from math import ceil
 
 PhysicsObjetConstructor : TypeAlias = Callable[[pymunk.Body, pygame.Surface, pygame.Vector2|None], BasePhysicsObject]
@@ -57,6 +59,7 @@ class DynamicBall(BaseLevelGeometry):
 
     friction : NotRequired[float]
     bounciness : NotRequired[float]
+    tracer : NotRequired[bool]
 
 LevelGeometry : TypeAlias = StaticRect|StaticPoly|DynamicBall
 # create functions that convert the struct into Body, Shape and Surface components
@@ -74,7 +77,7 @@ def value_to_bitmask(val : int|list[int]) -> int:
         total += 2 ** v
     return total
 
-def create_level_geometry_object(obj : BaseLevelGeometry, sim_space : pymunk.Space, constructor : PhysicsObjetConstructor = BasicPhysicsObject.spawn) -> BasePhysicsObject:
+def make_level_geometry_object(obj : BaseLevelGeometry, sim_space : pymunk.Space, constructor : PhysicsObjetConstructor = BasicPhysicsObject.spawn) -> BasePhysicsObject:
     match obj["object_type"]:
         case "static_rect":
             obj : StaticRect = obj
@@ -91,7 +94,7 @@ def create_level_geometry_object(obj : BaseLevelGeometry, sim_space : pymunk.Spa
         case "dynamic_ball":
             obj : DynamicBall = obj
             body, shapes, surf = create_dynamic_ball(obj["radius"], obj["pos"], obj["color"], 
-                                                     obj.get('colorkey', (0, 255, 0)), obj.get("friction", 0.5), obj.get("bounciness", 0.8))
+                                                     obj.get('colorkey', (0, 255, 0)), obj.get("friction", 0.5), obj.get("bounciness", 0.8), obj.get("tracer", True))
             for shape in shapes:
                 shape.collision_type = value_to_bitmask(obj.get("collision_type", 0))
                 collision_category = value_to_bitmask(obj.get("collision_category", pymunk.ShapeFilter.ALL_CATEGORIES()))
@@ -119,7 +122,7 @@ def calculate_cog(points : list[tuple[int, int]]) -> pygame.Vector2:
     return pymunk.Poly(None, points).center_of_gravity
 
 def create_dynamic_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey : ColorType|None=(0, 255, 0),
-                     friction : float = 0.5, bounce : float = 0.8) -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface]:
+                     friction : float = 0.5, bounce : float = 0.8, tracer : bool = True) -> tuple[pymunk.Body, list[pymunk.Shape], pygame.Surface]:
     new_body : pymunk.Body = pymunk.Body(50, 30)
     new_body.moment = pymunk.moment_for_circle(new_body.mass, 0, r)
     new_shape = pymunk.shapes.Circle(new_body, r)
@@ -132,7 +135,8 @@ def create_dynamic_ball(r : int, pos : pygame.Vector2, color = "Red", colorkey :
     new_surf.set_colorkey(colorkey)
     new_surf.fill(colorkey)
     pygame.draw.circle(new_surf, color, (r, r), r)
-    pygame.draw.line(new_surf, "Red" if color != "Red" else "Blue", (r, r), (r, 0), width=r // 4 if r // 4 > 0 else 1)
+    if tracer:
+        pygame.draw.line(new_surf, "Red" if color != "Red" else "Blue", (r, r), (r, 0), width=r // 4 if r // 4 > 0 else 1)
 
     return new_body, [new_shape], new_surf
 
@@ -196,6 +200,18 @@ def create_static_rect(w : int, h : int, pos : pygame.Vector2, color = "Black", 
     new_surf.fill(color)
 
     return new_body, [new_shape], new_surf
+
+def make_projectile(spawn_pos : list[int, int], velocity : list[int, int], sim_space : pymunk.Space, is_enemy : bool = False) -> ProjectilePhysicsObject:
+    body, shapes, surf = create_dynamic_ball(10, spawn_pos, tracer=False)
+    for shape in shapes:
+        shape.collision_type = value_to_bitmask(4 if is_enemy else 5)
+        collision_category = value_to_bitmask([4] if is_enemy else [5])
+        collision_mask = value_to_bitmask([2] if is_enemy else [1])
+        shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
+    body.velocity = velocity
+    body.velocity_func = ignore_gravity
+    sim_space.add(body, *shapes)
+    return ProjectilePhysicsObject.spawn(body, surf)
 
 test_level_geometry : list[LevelGeometry] = [
     {"object_type" : "static_rect", "pos" : [480, 500], "width" : 960, "height" : 20, "color" : "Black", 

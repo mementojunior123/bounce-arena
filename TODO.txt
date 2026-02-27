@@ -1,3 +1,4 @@
--Add a visual/projectile for the shooting mechanic
 -Continue the damage system:
     Bullets deal a fixed amount of damage
+    Bullets deal more knockback depending on damage dealt
+    Improve collision handler responsability delegation

@@ -10,7 +10,7 @@ import pymunk
 
 from math import degrees
 import random
-from typing import Any
+from typing import Any, Self
 
 class BasePhysicsObject(Sprite, sprite_count = 0):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
@@ -41,6 +41,20 @@ class BasePhysicsObject(Sprite, sprite_count = 0):
         element.current_camera = core_object.game.main_camera
         cls.unpool(element)
         return element
+    
+    @classmethod
+    def get_instance_by_body(cls, body : pymunk.Body) -> Self|None:
+        for instance in cls.active_elements:
+            if instance.sim_body == body:
+                return instance
+        return None
+    
+    @classmethod
+    def get_instance_by_shape(cls, shape : pymunk.Shape) -> Self|None:
+        for instance in cls.active_elements:
+            if shape in instance.sim_body.shapes:
+                return instance
+        return None
     
     def before_sim(self, delta : float):
         pass
@@ -130,7 +144,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.damage_taken = 0
         if pymunk.version[0] == "6":
             handler = element.sim_body.space.add_collision_handler(2, 1)
-            handler.data = {}
+            handler._data = {}
             handler.begin = element.on_collision_with_enemy
             handler.separate = element.post_collision_with_enemy
         else:
@@ -150,7 +164,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if dot_product_dealt < 0 or dot_product_dealt2 < 0:
             damage_dealt = 0
         else:
-            damage_dealt = abs_player_velocity.length_squared * dot_product_dealt * dot_product_dealt2 * 0.01
+            damage_dealt = abs_player_velocity.get_length_sqrd() * dot_product_dealt * dot_product_dealt2 * 0.01
 
         vec_to_player_norm : pymunk.Vec2d = -vec_to_enemy_norm
         neg_velocity_diff = -velocity_diff
@@ -160,7 +174,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if dot_product_taken < 0 or dot_product_taken2 < 0:
             damage_taken = 0
         else:
-            damage_taken = abs_enemy_velocity.length_squared * dot_product_taken * dot_product_taken2 * 0.01
+            damage_taken = abs_enemy_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01
 
         if damage_dealt < 5:
             print("Not enough damage dealt")
@@ -227,12 +241,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-        hits = space.segment_query(shot_origin, shot_end, 25, pymunk.ShapeFilter())
-        for hit in hits:
-            if not hit.shape:
-                continue
-            if hit.shape.collision_type == 1:
-                hit.shape.body.apply_impulse_at_world_point(tuple(-direction * force), hit.point)
+        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(150), self.sim_body.space, False)
+
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
         self.angle = degrees(self.sim_body.angle)
@@ -314,12 +324,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-        hits = self.sim_body.space.segment_query(shot_origin, shot_end, 25, pymunk.ShapeFilter())
-        for hit in hits:
-            if not hit.shape:
-                continue
-            if hit.shape.collision_type == 2:
-                hit.shape.body.apply_impulse_at_world_point(tuple(-direction * force * 2), hit.point)
+        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(150), self.sim_body.space, True)
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
@@ -329,9 +334,13 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if self.shot_timer.duration < 0 and self.shot_timer.get_time() > 0.5:
             shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
             shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-            hits = self.sim_body.space.segment_query(shot_origin, shot_end, 25, pymunk.ShapeFilter())
+            shot_direction : pymunk.Vec2d = (shot_end - shot_origin).normalized()
+            hits = self.sim_body.space.segment_query(shot_origin, shot_end, 2, pymunk.ShapeFilter())
             for hit in hits:
                 if not hit.shape:
+                    continue
+                hit_to_center : pymunk.Vec2d = (hit.shape.body.position - hit.point).normalized()
+                if not hit_to_center.dot(shot_direction) > 0.95:
                     continue
                 if hit.shape.collision_type == 2:
                     self.apply_propulsion()
@@ -348,3 +357,45 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
+
+class ProjectilePhysicsObject(BasePhysicsObject, sprite_count = 20):
+    IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
+    
+    test_image : pygame.Surface = pygame.surface.Surface(IMAGE_SIZE)
+    pygame.draw.rect(test_image, "Purple", (0,0, *IMAGE_SIZE))
+
+    def __init__(self) -> None:
+        super().__init__()
+        pass
+
+    @classmethod
+    def spawn(cls, obj : pymunk.Body, image : pygame.Surface|None = None,
+              pivot_offest : pygame.Vector2|None = None):
+        element = cls.inactive_elements[0]
+        element.sim_body = obj
+        element.image = image or cls.test_image
+        element.rect = element.image.get_rect()
+
+        element.position = pygame.Vector2(element.sim_body.position)
+        element.align_rect()
+        element.zindex = 0
+
+        element.pivot = Pivot2D(element._position, element.image, element.image.get_colorkey() or (0, 255, 0))
+        element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity) + (pivot_offest or pygame.Vector2(0,0))
+        element.current_camera = core_object.game.main_camera
+        cls.unpool(element)
+        return element
+    
+    def update(self, delta: float):
+        self.position = pygame.Vector2(self.sim_body.position)
+        self.angle = degrees(self.sim_body.angle)
+    
+    def clean_instance(self):
+        super().clean_instance()
+    
+    def draw(self, display : pygame.Surface):
+        super().draw(display)
+
+def runtime_imports():
+    global src
+    import src.level_geometry

@@ -196,3 +196,16 @@ def remove_image_empty(img : pygame.Surface) -> pygame.Surface:
         new_surf.fill(colorkey)
     new_surf.blit(img, (0, 0), area = bounding_box)
     return new_surf
+
+def value_to_bitmask(val : int|list[int]) -> int:
+    """
+    Bitmasks in list form start at 0.
+    """
+    if isinstance(val, int):
+        return val
+    total : int = 0
+    for v in val:
+        if not isinstance(v, int):
+            raise ValueError
+        total += 2 ** v
+    return total

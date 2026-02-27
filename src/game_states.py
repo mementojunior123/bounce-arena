@@ -70,11 +70,13 @@ class PhysicsTestGameState(NormalGameState):
         self.simulation_space.gravity = (0, 7.5)
 
         player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
-                                           "collision_type" : 2, "collision_category" : [2], "collision_mask" : [1, 3, 4]}
+                                           "collision_type" : CollisionTypes.PLAYER_BALL, "collision_category" : [CollisionTypes.PLAYER_BALL], 
+                                           "collision_mask" : [CollisionTypes.ENEMY_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.ENEMY_PROJECTILE]}
         self.player : PlayerPhysicsObject = src.level_geometry.make_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
 
         enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9,
-                                          "collision_type" : 1, "collision_category" : [1], "collision_mask" : [2, 3, 5]}
+                                          "collision_type" : CollisionTypes.ENEMY_BALL, "collision_category" : [CollisionTypes.ENEMY_BALL], 
+                                          "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.PLAYER_PROJECTILE]}
         self.enemy_ball : EnemyPhysicsObject = src.level_geometry.make_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)
 
         for level_geomerty in src.level_geometry.test_level_geometry:
@@ -169,8 +171,11 @@ def runtime_imports():
     import src.level_geometry
     from src.level_geometry import LevelGeometry
 
-    src.sprites.physics_object.runtime_imports()
+    global CollisionTypes
+    from src.collision_type_constants import CollisionTypes
 
+    src.sprites.physics_object.runtime_imports()
+    
 
 class GameStates:
     NormalGameState = NormalGameState

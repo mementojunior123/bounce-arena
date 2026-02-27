@@ -6,11 +6,14 @@ from framework.utils.animation import Animation
 from framework.utils.pivot_2d import Pivot2D
 from framework.utils.helpers import ColorType
 from framework.utils.my_timer import Timer
+from framework.utils.ui.ui_sprite import UiSprite
+from framework.utils.ui.textsprite import TextSprite
 import pymunk
 
 from math import degrees
 import random
 from typing import Any, Self
+from src.collision_type_constants import CollisionTypes
 
 class BasePhysicsObject(Sprite, sprite_count = 0):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
@@ -56,6 +59,24 @@ class BasePhysicsObject(Sprite, sprite_count = 0):
                 return instance
         return None
     
+    """@classmethod
+    def get_instances_by_collision_info(cls, collision_type : int|None = None, collision_category : int|list[int]|None = None, 
+                                        collision_mask : int|list[int]|None = None) -> list[Self]:
+        result = []
+        for instance in cls.active_elements:
+            """
+    
+    def remove_from_space(self):
+        self.sim_body.space.remove(self.sim_body, *self.sim_body.shapes)
+    
+    def destroy(self):
+        self.remove_from_space()
+        self.kill_instance()
+    
+    def destroy_safe(self):
+        self.remove_from_space()
+        self.kill_instance_safe()
+
     def before_sim(self, delta : float):
         pass
 
@@ -107,7 +128,7 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
         cls.unpool(element)
         return element
     
-    def update(self, delta: float):
+    def post_sim(self, delta: float):
         self.position = pygame.Vector2(self.sim_body.position)
         self.angle = degrees(self.sim_body.angle)
     
@@ -122,6 +143,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         super().__init__()
         self.damage_dealt : float
         self.damage_taken : float
+        self.damage_dealt_uisprite : TextSprite
+        self.damage_taken_uisprite : TextSprite
         pass
 
     @classmethod
@@ -143,28 +166,40 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.damage_dealt = 0
         element.damage_taken = 0
         if pymunk.version[0] == "6":
-            handler = element.sim_body.space.add_collision_handler(2, 1)
+            handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL)
             handler._data = {}
             handler.begin = element.on_collision_with_enemy
             handler.separate = element.post_collision_with_enemy
-        else:
-            element.sim_body.space.on_collision(2, 1, element.on_collision_with_enemy, separate=element.post_collision_with_enemy, data={})
 
+            handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_PROJECTILE)
+            handler._data = {}
+            handler.begin = element.on_collision_with_proj_enemy
+            handler.separate = element.post_collision_with_proj_enemy
+        else:
+            element.sim_body.space.on_collision(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL, 
+                                                element.on_collision_with_enemy, separate=element.post_collision_with_enemy, data={})
+            element.sim_body.space.on_collision(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_PROJECTILE, 
+                                                element.on_collision_with_proj_enemy, separate=element.post_collision_with_proj_enemy, data={})
+            
+        element.damage_taken_uisprite = TextSprite(pygame.Vector2(950, 10), "topright", 0, "0%", 
+                                                   text_settings=(core_object.game.font_40, "Red", False), text_stroke_settings=("Black", 2))
+        core_object.main_ui.add_multiple([element.damage_taken_uisprite])
         cls.unpool(element)
         return element
     
-    def on_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> bool:
-        data['pre_solve_damage'] = (self.damage_dealt, self.damage_taken)
-        player_ball, enemy_ball = arbiter.shapes
+    def on_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
+        data['pre_solve_damage'] = self.damage_taken
+        data['enemy_data'] = {}
+        player_ball, enemy_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
+        enemy_sprite : EnemyPhysicsObject = EnemyPhysicsObject.get_instance_by_shape(enemy_ball)
+        if not isinstance(enemy_sprite, EnemyPhysicsObject):
+            print("error")
+            return True
+        data['enemy_sprite'] = enemy_sprite
+        enemy_sprite.on_collision_with_opposant(arbiter, space, data['enemy_data'], invert_shapes=True)
         vec_to_enemy_norm : pymunk.Vec2d = (enemy_ball.body.position - player_ball.body.position).normalized()
         velocity_diff = (player_ball.body.velocity - enemy_ball.body.velocity)
         abs_player_velocity = player_ball.body.velocity
-        dot_product_dealt = vec_to_enemy_norm.dot(velocity_diff.normalized())
-        dot_product_dealt2 = vec_to_enemy_norm.dot(abs_player_velocity.normalized())
-        if dot_product_dealt < 0 or dot_product_dealt2 < 0:
-            damage_dealt = 0
-        else:
-            damage_dealt = abs_player_velocity.get_length_sqrd() * dot_product_dealt * dot_product_dealt2 * 0.01
 
         vec_to_player_norm : pymunk.Vec2d = -vec_to_enemy_norm
         neg_velocity_diff = -velocity_diff
@@ -176,37 +211,72 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         else:
             damage_taken = abs_enemy_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01
 
-        if damage_dealt < 5:
-            print("Not enough damage dealt")
-        else:
-            self.damage_dealt += damage_dealt
-            print("Damage dealt:", damage_dealt, f"({self.damage_dealt})")
         if damage_taken < 5:
-            print("Not enough damage taken")
+            print("Not enough damage taken (player)")
         else:
             self.damage_taken += damage_taken
-            print("Damage taken:", damage_taken, f"({self.damage_taken})")
+            print("Damage taken (player):", damage_taken, f"({self.damage_taken})")
 
-        data['enemy_speed_pre_solve'] = abs_enemy_velocity
         data['player_speed_pre_solve'] = abs_player_velocity
         return True
     
-    def post_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
-        player_ball, enemy_ball = arbiter.shapes
-        knockback_mult_player : float = 0.5 * (1 + (data['pre_solve_damage'][1] / 100))
-        knockback_mult_enemy : float = 0.5 * (1 + (data['pre_solve_damage'][0] / 100))
+    def post_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> None:
+        player_ball, _ = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
+        knockback_mult_player : float = 0.5 * (1 + (data['pre_solve_damage'] / 100))
 
-        before_enemy_speed = enemy_ball.body.velocity
         before_player_speed = player_ball.body.velocity
 
-        enemy_speed_diff = before_enemy_speed - data['enemy_speed_pre_solve']
         player_speed_diff = before_player_speed - data['player_speed_pre_solve']
 
-        enemy_ball.body.velocity = data['enemy_speed_pre_solve'] + (enemy_speed_diff * knockback_mult_enemy)
         player_ball.body.velocity = data['player_speed_pre_solve'] + (player_speed_diff * knockback_mult_player)
-        print(before_enemy_speed.length, "-->", enemy_ball.body.velocity.length)
-        print(before_player_speed.length, "-->", player_ball.body.velocity.length)
+        print("Player speed:", before_player_speed.length, "-->", player_ball.body.velocity.length)
         print("----")
+        self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
+        data['enemy_sprite'].post_collision_with_opposant(arbiter, space, data['enemy_data'], invert_shapes=True)
+    
+    def on_collision_with_proj_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> bool:
+        data['pre_solve_damage'] = self.damage_taken
+        player_ball, proj_ball = arbiter.shapes
+        proj_sprite : ProjectilePhysicsObject = ProjectilePhysicsObject.get_instance_by_shape(proj_ball)
+        
+        vec_to_enemy_norm : pymunk.Vec2d = (proj_ball.body.position - player_ball.body.position).normalized()
+        velocity_diff = (player_ball.body.velocity - proj_ball.body.velocity)
+        abs_player_velocity = player_ball.body.velocity
+
+        vec_to_player_norm : pymunk.Vec2d = -vec_to_enemy_norm
+        neg_velocity_diff = -velocity_diff
+        abs_enemy_velocity = proj_ball.body.velocity
+        dot_product_taken = vec_to_player_norm.dot(neg_velocity_diff.normalized())
+        dot_product_taken2 = vec_to_player_norm.dot(abs_enemy_velocity.normalized())
+        if dot_product_taken < 0 or dot_product_taken2 < 0:
+            damage_taken = 0
+        else:
+            damage_taken = abs_enemy_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01 * 0.2
+
+        if proj_sprite:
+            proj_sprite.destroy_safe()
+
+        if damage_taken < 5:
+            print("Not enough damage taken (projectile, to player):")
+        else:
+            self.damage_taken += damage_taken
+            print("Damage taken (projectile, to player):", damage_taken, f"({self.damage_taken})")
+
+        data['player_speed_pre_solve'] = abs_player_velocity
+        return True
+    
+    def post_collision_with_proj_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
+        player_ball, _ = arbiter.shapes
+        knockback_mult_player : float = 0.25 * (1 + (data['pre_solve_damage'] / 100))
+
+        before_player_speed = player_ball.body.velocity
+        player_speed_diff = before_player_speed - data['player_speed_pre_solve']
+
+        player_ball.body.velocity = data['player_speed_pre_solve'] + (player_speed_diff * knockback_mult_player)
+        print("Player speed:", before_player_speed.length, "-->", player_ball.body.velocity.length)
+        print("----")
+        self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
+    
     
     def before_step(self, delta : float, step_index : int, step_count : int):
         keyboard_map = pygame.key.get_pressed()
@@ -241,7 +311,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(150), self.sim_body.space, False)
+        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(120), self.sim_body.space, False)
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
@@ -278,6 +348,8 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         super().__init__()
         self.current_direction : int
         self.shot_timer : Timer
+        self.damage_taken : float
+        self.damage_taken_uisprite : TextSprite
         pass
 
     @classmethod
@@ -299,8 +371,114 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.current_direction = 1
         element.shot_timer = Timer(-1, core_object.game.game_timer.get_time)
 
+        element.damage_taken = 0
+        if pymunk.version[0] == "6":
+            """
+            handler = element.sim_body.space.add_collision_handler(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_BALL)
+            handler._data = {}
+            handler.begin = element.on_collision_with_opposant
+            handler.separate = element.post_collision_with_opposant
+            """
+            handler = element.sim_body.space.add_collision_handler(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_PROJECTILE)
+            handler._data = {}
+            handler.begin = element.on_collision_with_proj_opposant
+            handler.separate = element.post_collision_with_proj_opposant
+        else:
+            """
+            element.sim_body.space.on_collision(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_BALL, 
+                                                element.on_collision_with_opposant, separate=element.post_collision_with_opposant, data={})
+            """
+            element.sim_body.space.on_collision(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_PROJECTILE, 
+                                                element.on_collision_with_proj_opposant, separate=element.post_collision_with_proj_opposant, data={})
+        element.damage_taken_uisprite = TextSprite(pygame.Vector2(700, 10), "topright", 0, "0%", 
+                                                   text_settings=(core_object.game.font_40, "White", False), text_stroke_settings=("Black", 2))
+        core_object.main_ui.add_multiple([element.damage_taken_uisprite])
+
         cls.unpool(element)
         return element
+    
+    def on_collision_with_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
+        data['pre_solve_damage'] = self.damage_taken
+        this_ball, opposant_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
+        vec_to_opposant_norm : pymunk.Vec2d = (opposant_ball.body.position - this_ball.body.position).normalized()
+        velocity_diff = (this_ball.body.velocity - opposant_ball.body.velocity)
+        abs_this_velocity = this_ball.body.velocity
+
+        vec_to_this_norm : pymunk.Vec2d = -vec_to_opposant_norm
+        neg_velocity_diff = -velocity_diff
+        abs_opposant_velocity = opposant_ball.body.velocity
+        dot_product_taken = vec_to_this_norm.dot(neg_velocity_diff.normalized())
+        dot_product_taken2 = vec_to_this_norm.dot(abs_opposant_velocity.normalized())
+        if dot_product_taken < 0 or dot_product_taken2 < 0:
+            damage_taken = 0
+        else:
+            damage_taken = abs_opposant_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01
+
+        if damage_taken < 5:
+            print(f"Not enough damage taken (enemy) ({abs_opposant_velocity.length, dot_product_taken, dot_product_taken2})")
+            print(vec_to_this_norm, abs_opposant_velocity.normalized(), neg_velocity_diff.normalized())
+        else:
+            self.damage_taken += damage_taken
+            print("Damage taken (enemy):", damage_taken, f"({self.damage_taken})")
+        data['this_speed_pre_solve'] = abs_this_velocity
+        return True
+    
+    def post_collision_with_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> None:
+        this_ball, opposant_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
+        knockback_mult_this : float = 0.5 * (1 + (data['pre_solve_damage'] / 100))
+
+        before_this_speed = this_ball.body.velocity
+
+        this_speed_diff = before_this_speed - data['this_speed_pre_solve']
+
+        this_ball.body.velocity = data['this_speed_pre_solve'] + (this_speed_diff * knockback_mult_this)
+        print("Enemy speed:", before_this_speed.length, "-->", this_ball.body.velocity.length)
+        print("----")
+        self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
+    
+    def on_collision_with_proj_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> bool:
+        data['pre_solve_damage'] = self.damage_taken
+        this_ball, proj_ball = arbiter.shapes
+        proj_sprite : ProjectilePhysicsObject = ProjectilePhysicsObject.get_instance_by_shape(proj_ball)
+        
+        vec_to_opposant_norm : pymunk.Vec2d = (proj_ball.body.position - this_ball.body.position).normalized()
+        velocity_diff = (this_ball.body.velocity - proj_ball.body.velocity)
+        abs_this_velocity = this_ball.body.velocity
+
+        vec_to_this_norm : pymunk.Vec2d = -vec_to_opposant_norm
+        neg_velocity_diff = -velocity_diff
+        abs_opposant_velocity = proj_ball.body.velocity
+        dot_product_taken = vec_to_this_norm.dot(neg_velocity_diff.normalized())
+        dot_product_taken2 = vec_to_this_norm.dot(abs_opposant_velocity.normalized())
+        if dot_product_taken < 0 or dot_product_taken2 < 0:
+            damage_taken = 0
+        else:
+            damage_taken = abs_opposant_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01 * 0.2
+
+        if proj_sprite:
+            proj_sprite.destroy_safe()
+
+        if damage_taken < 5:
+            print("Not enough damage taken (projectile, to enemy):")
+        else:
+            self.damage_taken += damage_taken
+            print("Damage taken (projectile, to enemy):", damage_taken, f"({self.damage_taken})")
+
+        data['this_speed_pre_solve'] = abs_this_velocity
+        return True
+    
+    def post_collision_with_proj_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
+        this_ball, _ = arbiter.shapes
+        knockback_mult_this : float = 0.25 * (1 + (data['pre_solve_damage'] / 200))
+
+        before_this_speed = this_ball.body.velocity
+        this_speed_diff = before_this_speed - data['this_speed_pre_solve']
+
+        this_ball.body.velocity = data['this_speed_pre_solve'] + (this_speed_diff * knockback_mult_this)
+        print("Enemy speed:", before_this_speed.length, "-->", this_ball.body.velocity.length)
+        print("----")
+        self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
+    
     
     def before_step(self, delta : float, step_index : int, step_count : int):
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
@@ -324,7 +502,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(150), self.sim_body.space, True)
+        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(120), self.sim_body.space, True)
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
@@ -342,7 +520,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
                 hit_to_center : pymunk.Vec2d = (hit.shape.body.position - hit.point).normalized()
                 if not hit_to_center.dot(shot_direction) > 0.95:
                     continue
-                if hit.shape.collision_type == 2:
+                if hit.shape.collision_type == CollisionTypes.PLAYER_BALL:
                     self.apply_propulsion()
                     self.shot_timer.set_duration(random.uniform(2, 3))
                     break
@@ -386,7 +564,7 @@ class ProjectilePhysicsObject(BasePhysicsObject, sprite_count = 20):
         cls.unpool(element)
         return element
     
-    def update(self, delta: float):
+    def post_sim(self, delta: float):
         self.position = pygame.Vector2(self.sim_body.position)
         self.angle = degrees(self.sim_body.angle)
     

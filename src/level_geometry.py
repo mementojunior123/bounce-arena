@@ -11,6 +11,7 @@ from framework.game.sprite import Sprite
 from framework.core.core import core_object
 
 from framework.utils.animation import Animation
+from framework.utils.helpers import value_to_bitmask
 from framework.utils.pivot_2d import Pivot2D
 from framework.utils.helpers import ColorType
 import pymunk
@@ -18,6 +19,7 @@ import pymunk
 from typing import TypedDict, Literal, Callable, TypeAlias, NotRequired
 from src.sprites.physics_object import BasePhysicsObject, ProjectilePhysicsObject, BasicPhysicsObject
 from math import ceil
+from src.collision_type_constants import CollisionTypes
 
 PhysicsObjetConstructor : TypeAlias = Callable[[pymunk.Body, pygame.Surface, pygame.Vector2|None], BasePhysicsObject]
 
@@ -62,20 +64,6 @@ class DynamicBall(BaseLevelGeometry):
     tracer : NotRequired[bool]
 
 LevelGeometry : TypeAlias = StaticRect|StaticPoly|DynamicBall
-# create functions that convert the struct into Body, Shape and Surface components
-
-def value_to_bitmask(val : int|list[int]) -> int:
-    """
-    Bitmasks in list form start at 0.
-    """
-    if isinstance(val, int):
-        return val
-    total : int = 0
-    for v in val:
-        if not isinstance(v, int):
-            raise ValueError
-        total += 2 ** v
-    return total
 
 def make_level_geometry_object(obj : BaseLevelGeometry, sim_space : pymunk.Space, constructor : PhysicsObjetConstructor = BasicPhysicsObject.spawn) -> BasePhysicsObject:
     match obj["object_type"]:
@@ -215,9 +203,9 @@ def make_projectile(spawn_pos : list[int, int], velocity : list[int, int], sim_s
 
 test_level_geometry : list[LevelGeometry] = [
     {"object_type" : "static_rect", "pos" : [480, 500], "width" : 960, "height" : 20, "color" : "Black", 
-     "collision_category" : [3], "collision_mask" : [1, 2]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
     {"object_type" : "static_poly", "pos" : [480, 270], "color" : "Black", "points" : [(-50, 50), (50, 50), (50, -50)], 
-     "collision_category" : [3], "collision_mask" : [1, 2]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
     {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100)], "bounciness" : 2, 
-     "collision_category" : [3], "collision_mask" : [1, 2]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
 ]

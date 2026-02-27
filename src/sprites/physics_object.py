@@ -141,9 +141,7 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
 class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def __init__(self) -> None:
         super().__init__()
-        self.damage_dealt : float
         self.damage_taken : float
-        self.damage_dealt_uisprite : TextSprite
         self.damage_taken_uisprite : TextSprite
         pass
 
@@ -163,7 +161,6 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.pivot.pivot_offset = pygame.Vector2(element.sim_body.center_of_gravity) + (pivot_offest or pygame.Vector2(0,0))
         element.current_camera = core_object.game.main_camera
 
-        element.damage_dealt = 0
         element.damage_taken = 0
         if pymunk.version[0] == "6":
             handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL)
@@ -309,7 +306,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
         space = self.sim_body.space
 
-        shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
+        shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -19))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
         src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(120), self.sim_body.space, False)
 
@@ -322,6 +319,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
     def clean_instance(self):
         super().clean_instance()
+        self.damage_taken = None
+        self.damage_taken_uisprite = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
@@ -500,7 +499,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
         self.sim_body.apply_impulse_at_world_point(tuple(direction * force * 0.65), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
 
-        shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
+        shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -19))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
         src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(120), self.sim_body.space, True)
 
@@ -510,15 +509,19 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def update(self, delta: float):
         if self.shot_timer.duration < 0 and self.shot_timer.get_time() > 0.5:
-            shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -25))
+            shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -10))
             shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
             shot_direction : pymunk.Vec2d = (shot_end - shot_origin).normalized()
             hits = self.sim_body.space.segment_query(shot_origin, shot_end, 2, pymunk.ShapeFilter())
             for hit in hits:
                 if not hit.shape:
                     continue
+                distance : float = (self.sim_body.position - hit.point).length
                 hit_to_center : pymunk.Vec2d = (hit.shape.body.position - hit.point).normalized()
-                if not hit_to_center.dot(shot_direction) > 0.95:
+                if distance > 25:
+                    if not hit_to_center.dot(shot_direction) > 0.95:
+                        continue
+                elif not hit_to_center.dot(shot_direction) > 0.60:
                     continue
                 if hit.shape.collision_type == CollisionTypes.PLAYER_BALL:
                     self.apply_propulsion()
@@ -532,6 +535,8 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         super().clean_instance()
         self.current_direction = None
         self.shot_timer = None
+        self.damage_taken = None
+        self.damage_taken_uisprite = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)

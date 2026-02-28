@@ -99,6 +99,12 @@ async def main():
             core_object.log_to_js_console(''.join(traceback.format_exception(e)))
         raise e
 
-asyncio.run(main())
+profiling : bool = False
+
+if profiling:
+    import cProfile
+    cProfile.run("asyncio.run(main())", sort=1)
+else:
+    asyncio.run(main())
 
 

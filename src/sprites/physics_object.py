@@ -143,6 +143,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         super().__init__()
         self.damage_taken : float
         self.damage_taken_uisprite : TextSprite
+        self.damage_cooldown_timer : Timer
         pass
 
     @classmethod
@@ -162,6 +163,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.current_camera = core_object.game.main_camera
 
         element.damage_taken = 0
+        element.damage_cooldown_timer = Timer(0.1, core_object.game.game_timer.get_time)
         if pymunk.version[0] == "6":
             handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL)
             handler._data = {}
@@ -184,9 +186,15 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         cls.unpool(element)
         return element
     
+    def take_damage(self, damage : float, ignore_cooldown : bool = False):
+        if not ignore_cooldown and not self.damage_cooldown_timer.isover():
+            return
+        self.damage_taken += damage
+        self.damage_cooldown_timer.restart()
+
     def on_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
         data['pre_solve_damage'] = self.damage_taken
-        data['enemy_data'] = {}
+        data['enemy_data'] = {'player_sprite' : self}
         player_ball, enemy_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
         enemy_sprite : EnemyPhysicsObject = EnemyPhysicsObject.get_instance_by_shape(enemy_ball)
         if not isinstance(enemy_sprite, EnemyPhysicsObject):
@@ -211,7 +219,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if damage_taken < 5:
             print("Not enough damage taken (player)")
         else:
-            self.damage_taken += damage_taken
+            self.take_damage(damage_taken)
+            enemy_sprite.damage_cooldown_timer.restart()
             print("Damage taken (player):", damage_taken, f"({self.damage_taken})")
 
         data['player_speed_pre_solve'] = abs_player_velocity
@@ -301,7 +310,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.sim_body.angular_velocity = 0
     
     def apply_propulsion(self):
-        force : float = 2500
+        force : float = 1000
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
         self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
         space = self.sim_body.space
@@ -321,6 +330,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         super().clean_instance()
         self.damage_taken = None
         self.damage_taken_uisprite = None
+        self.damage_cooldown_timer = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
@@ -349,6 +359,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.shot_timer : Timer
         self.damage_taken : float
         self.damage_taken_uisprite : TextSprite
+        self.damage_cooldown_timer : Timer
         pass
 
     @classmethod
@@ -369,6 +380,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         element.current_direction = 1
         element.shot_timer = Timer(-1, core_object.game.game_timer.get_time)
+        element.damage_cooldown_timer = Timer(0.1, core_object.game.game_timer.get_time)
 
         element.damage_taken = 0
         if pymunk.version[0] == "6":
@@ -395,6 +407,12 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         cls.unpool(element)
         return element
+
+    def take_damage(self, damage : float, ignore_cooldown : bool = False):
+        if not ignore_cooldown and not self.damage_cooldown_timer.isover():
+            return
+        self.damage_taken += damage
+        self.damage_cooldown_timer.restart()
     
     def on_collision_with_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
         data['pre_solve_damage'] = self.damage_taken
@@ -417,7 +435,8 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             print(f"Not enough damage taken (enemy) ({abs_opposant_velocity.length, dot_product_taken, dot_product_taken2})")
             print(vec_to_this_norm, abs_opposant_velocity.normalized(), neg_velocity_diff.normalized())
         else:
-            self.damage_taken += damage_taken
+            self.take_damage(damage_taken)
+            data['player_sprite'].damage_cooldown_timer.restart()
             print("Damage taken (enemy):", damage_taken, f"({self.damage_taken})")
         data['this_speed_pre_solve'] = abs_this_velocity
         return True
@@ -537,6 +556,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.shot_timer = None
         self.damage_taken = None
         self.damage_taken_uisprite = None
+        self.damage_cooldown_timer = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
@@ -572,6 +592,10 @@ class ProjectilePhysicsObject(BasePhysicsObject, sprite_count = 20):
     def post_sim(self, delta: float):
         self.position = pygame.Vector2(self.sim_body.position)
         self.angle = degrees(self.sim_body.angle)
+    
+    def update(self, delta):
+        if not self.rect.colliderect(pygame.Rect(0, 0, 960, 540)):
+            self.destroy_safe()
     
     def clean_instance(self):
         super().clean_instance()

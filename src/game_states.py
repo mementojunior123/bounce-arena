@@ -84,15 +84,19 @@ class PhysicsTestGameState(NormalGameState):
 
         src.sprites.physics_object.make_connections()
 
+        self.steps_taken : int = 0
+
     @staticmethod
     def on_collision(arbiter : pymunk.Arbiter, sim_space : pymunk.Space, data : Any):
         pass
 
     def main_logic(self, delta : float):
+        target_step_count : int = (self.game.game_timer.get_time() / (1 / 60) * self.SIMULATION_STEP_COUNT)
         TIMESCALE_FACTOR : float = 0.2
         for sprite in BasePhysicsObject.active_elements:
             sprite.before_sim(delta)
-        step_count : int = max(round(self.SIMULATION_STEP_COUNT * delta), 1)
+        step_count : int = min(max(round(target_step_count - self.steps_taken), 1), 20)
+        self.steps_taken += step_count
         for i in range(step_count):
             for sprite in BasePhysicsObject.active_elements:
                 sprite.before_step(delta, i, step_count)

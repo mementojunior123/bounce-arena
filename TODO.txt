@@ -1,9 +1,10 @@
+------Code organisation------
 -Improve the damage system:
-    -Add a way to reduce code duplication
-
--Improve the sprite and collision system:
+    Add a way to reduce code duplication
     Improve collision handler responsability delegation
-    Add a system that prevents double hits
-    Fix issues related to damage calculations and physics on different framerates
-        (Theory : it's an issue with damage happening on bounce e.g. a hits b, b bounces of the ground and "hits" a, a takes damage
-        This would be more likely to happen on uncapped FPS because there are more physics simulation steps happening)
+
+------Content------
+...
+
+
+------Networking------

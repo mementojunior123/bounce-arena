@@ -10,7 +10,7 @@ from framework.utils.ui.ui_sprite import UiSprite
 from framework.utils.ui.textsprite import TextSprite
 import pymunk
 
-from math import degrees
+from math import degrees, acos
 import random
 from typing import Any, Self
 from src.collision_type_constants import CollisionTypes
@@ -139,11 +139,13 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
         super().draw(display)
 
 class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
+    CONTROL_SCHEME : int = 0
     def __init__(self) -> None:
         super().__init__()
         self.damage_taken : float
         self.damage_taken_uisprite : TextSprite
         self.damage_cooldown_timer : Timer
+        self.current_direction : int
         pass
 
     @classmethod
@@ -164,6 +166,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         element.damage_taken = 0
         element.damage_cooldown_timer = Timer(0.1, core_object.game.game_timer.get_time)
+        element.current_direction = 1
+
         if pymunk.version[0] == "6":
             handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL)
             handler._data = {}
@@ -180,28 +184,21 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             element.sim_body.space.on_collision(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_PROJECTILE, 
                                                 element.on_collision_with_proj_enemy, separate=element.post_collision_with_proj_enemy, data={})
             
-        element.damage_taken_uisprite = TextSprite(pygame.Vector2(950, 10), "topright", 0, "0%", 
-                                                   text_settings=(core_object.game.font_40, "Red", False), text_stroke_settings=("Black", 2))
+        element.damage_taken_uisprite = TextSprite(pygame.Vector2(700, 10), "topright", 0, "0%", 
+                                                   text_settings=(core_object.game.font_40, "Blue", False), text_stroke_settings=("Black", 2))
         core_object.main_ui.add_multiple([element.damage_taken_uisprite])
         cls.unpool(element)
         return element
     
-    def take_damage(self, damage : float, ignore_cooldown : bool = False):
+    def take_damage(self, damage : float, ignore_cooldown : bool = False, trigger_cooldown : bool = True):
         if not ignore_cooldown and not self.damage_cooldown_timer.isover():
             return
         self.damage_taken += damage
-        self.damage_cooldown_timer.restart()
-
-    def on_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
-        data['pre_solve_damage'] = self.damage_taken
-        data['enemy_data'] = {'player_sprite' : self}
+        if self.damage_taken > 500: self.damage_taken = 500.0
+        if trigger_cooldown: self.damage_cooldown_timer.restart()
+    
+    def calculate_damage_from_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, invert_shapes : bool = False) -> tuple[float, str]:
         player_ball, enemy_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
-        enemy_sprite : EnemyPhysicsObject = EnemyPhysicsObject.get_instance_by_shape(enemy_ball)
-        if not isinstance(enemy_sprite, EnemyPhysicsObject):
-            print("error")
-            return True
-        data['enemy_sprite'] = enemy_sprite
-        enemy_sprite.on_collision_with_opposant(arbiter, space, data['enemy_data'], invert_shapes=True)
         vec_to_enemy_norm : pymunk.Vec2d = (enemy_ball.body.position - player_ball.body.position).normalized()
         velocity_diff = (player_ball.body.velocity - enemy_ball.body.velocity)
         abs_player_velocity = player_ball.body.velocity
@@ -214,16 +211,44 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if dot_product_taken < 0 or dot_product_taken2 < 0:
             damage_taken = 0
         else:
-            damage_taken = abs_enemy_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01 * 0.4
-
+            damage_taken = (abs_enemy_velocity.length + 10) ** 2 * dot_product_taken * dot_product_taken2 * 0.01 * 0.6
+        
         if damage_taken < 5:
-            print("Not enough damage taken (player)")
+            log = f"Not enough damage taken (player) ({abs_enemy_velocity.length, dot_product_taken, dot_product_taken2})\n"
+            log += f"{vec_to_player_norm, abs_enemy_velocity.normalized(), neg_velocity_diff.normalized()}"
         else:
-            self.take_damage(damage_taken)
-            enemy_sprite.damage_cooldown_timer.restart()
-            print("Damage taken (player):", damage_taken, f"({self.damage_taken})")
+            log = f"Damage taken (player): {damage_taken} ({min(self.damage_taken + damage_taken, 500)})"
+        return damage_taken, log
 
+    def on_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
+        data['pre_solve_damage'] = self.damage_taken
+        data['enemy_data'] = {'player_sprite' : self}
+        player_ball, enemy_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
+        enemy_sprite : EnemyPhysicsObject = EnemyPhysicsObject.get_instance_by_shape(enemy_ball)
+        if not isinstance(enemy_sprite, EnemyPhysicsObject):
+            print("error")
+            return True
+        data['enemy_sprite'] = enemy_sprite
+        
+        abs_player_velocity = player_ball.body.velocity
+
+        projected_damage_taken, log_player = self.calculate_damage_from_enemy(arbiter, space, invert_shapes=False)
+        projected_damage_dealt, log_enemy = enemy_sprite.calculate_damage_from_opposant(arbiter, space, invert_shapes=True)
+
+        if projected_damage_taken < 5:
+            print(log_player)
+        elif projected_damage_taken < projected_damage_dealt:
+            print(f"Player won clash ({projected_damage_dealt:.3f} > {projected_damage_taken:.3f})")
+        else:
+            self.take_damage(projected_damage_taken)
+            enemy_sprite.damage_cooldown_timer.restart()
+            print(log_player)
+
+        data['enemy_data'].update({'this_won_clash' : projected_damage_taken > projected_damage_dealt, "this_log" : log_enemy, 
+                                   "this_projected_damage_taken" : projected_damage_dealt, "this_projected_damage_dealt" : projected_damage_taken})
         data['player_speed_pre_solve'] = abs_player_velocity
+        enemy_sprite.on_collision_with_opposant(arbiter, space, data['enemy_data'], invert_shapes=True)
+
         return True
     
     def post_collision_with_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> None:
@@ -232,9 +257,16 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         before_player_speed = player_ball.body.velocity
 
-        player_speed_diff = before_player_speed - data['player_speed_pre_solve']
-
-        player_ball.body.velocity = data['player_speed_pre_solve'] + (player_speed_diff * knockback_mult_player)
+        player_speed_diff : pymunk.Vec2d = before_player_speed - data['player_speed_pre_solve']
+        angle_to_ground : float = degrees(acos(player_speed_diff.normalized().dot((0, 1))))
+        lift : float
+        if angle_to_ground < 55 or data['pre_solve_damage'] < 100:
+            lift = 0
+        elif player_speed_diff.y > 15:
+            lift = 0
+        else:
+            lift = (data['pre_solve_damage'] - 100) / 5
+        player_ball.body.velocity = data['player_speed_pre_solve'] + (player_speed_diff * knockback_mult_player) + pymunk.Vec2d(0, -lift)
         print("Player speed:", before_player_speed.length, "-->", player_ball.body.velocity.length)
         print("----")
         self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
@@ -265,7 +297,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if damage_taken < 5:
             print("Not enough damage taken (projectile, to player):")
         else:
-            self.damage_taken += damage_taken
+            self.take_damage(damage_taken, ignore_cooldown=True, trigger_cooldown=False)
             print("Damage taken (projectile, to player):", damage_taken, f"({self.damage_taken})")
 
         data['player_speed_pre_solve'] = abs_player_velocity
@@ -273,7 +305,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def post_collision_with_proj_enemy(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
         player_ball, _ = arbiter.shapes
-        knockback_mult_player : float = 0.4 * (0.5 + (data['pre_solve_damage'] / 100))
+        knockback_mult_player : float = 0.5 * (0.8 + (data['pre_solve_damage'] / 100))
 
         before_player_speed = player_ball.body.velocity
         player_speed_diff = before_player_speed - data['player_speed_pre_solve']
@@ -289,18 +321,22 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
         speed : int = 500
         angular_velocity : float = 0
-        if keyboard_map[pygame.K_a]:
+        if keyboard_map[pygame.K_a] or (keyboard_map[pygame.K_LEFT] and self.CONTROL_SCHEME == 1):
             move_vector += pygame.Vector2(-1, 0)
-        if keyboard_map[pygame.K_d]:
+        if keyboard_map[pygame.K_d] or (keyboard_map[pygame.K_RIGHT] and self.CONTROL_SCHEME == 1):
             move_vector += pygame.Vector2(1, 0)
-        if keyboard_map[pygame.K_s]:
+        if keyboard_map[pygame.K_s] or (keyboard_map[pygame.K_DOWN] and self.CONTROL_SCHEME == 1):
             move_vector += pygame.Vector2(0, 2.5)
-        if keyboard_map[pygame.K_w]:
+        if keyboard_map[pygame.K_w] or (keyboard_map[pygame.K_UP] and self.CONTROL_SCHEME == 1):
             move_vector += pygame.Vector2(0, -2.5)
-        if keyboard_map[pygame.K_q]:
-            angular_velocity += -1
-        if keyboard_map[pygame.K_e]:
-            angular_velocity += 1
+        rotation_method : int = 1
+        if rotation_method == 0:
+            if keyboard_map[pygame.K_q]:
+                angular_velocity += -1
+            if keyboard_map[pygame.K_e]:
+                angular_velocity += 1
+        else:
+            angular_velocity = self.current_direction * 0.5
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
         if angular_velocity:
@@ -318,6 +354,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -19))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
         src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(120), self.sim_body.space, False)
+        self.current_direction *= -1
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
@@ -331,13 +368,16 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.damage_taken = None
         self.damage_taken_uisprite = None
         self.damage_cooldown_timer = None
+        self.current_direction = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
     
     def handle_keydown_event(self, event : pygame.Event):
+        if not isinstance(core_object.game.state, core_object.game.STATES.NormalGameState):
+            return
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
+            if event.key == pygame.K_SPACE or (event.key == pygame.K_RETURN and self.CONTROL_SCHEME == 1):
                 self.apply_propulsion()
     
     @classmethod
@@ -345,14 +385,9 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         for element in cls.active_elements:
             element.handle_keydown_event(event)
 
-def make_connections():
-    core_object.event_manager.bind(pygame.KEYDOWN, PlayerPhysicsObject.receive_keydown_event)
-
-def remove_connections():
-    core_object.event_manager.unbind(pygame.KEYDOWN, PlayerPhysicsObject.receive_keydown_event)
-
 
 class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
+    CONTROL_SCHEME = 1
     def __init__(self) -> None:
         super().__init__()
         self.current_direction : int
@@ -401,21 +436,21 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             """
             element.sim_body.space.on_collision(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_PROJECTILE, 
                                                 element.on_collision_with_proj_opposant, separate=element.post_collision_with_proj_opposant, data={})
-        element.damage_taken_uisprite = TextSprite(pygame.Vector2(700, 10), "topright", 0, "0%", 
-                                                   text_settings=(core_object.game.font_40, "White", False), text_stroke_settings=("Black", 2))
+        element.damage_taken_uisprite = TextSprite(pygame.Vector2(950, 10), "topright", 0, "0%", 
+                                                   text_settings=(core_object.game.font_40, "Green", False), text_stroke_settings=("Black", 2))
         core_object.main_ui.add_multiple([element.damage_taken_uisprite])
 
         cls.unpool(element)
         return element
 
-    def take_damage(self, damage : float, ignore_cooldown : bool = False):
+    def take_damage(self, damage : float, ignore_cooldown : bool = False, trigger_cooldown : bool = True):
         if not ignore_cooldown and not self.damage_cooldown_timer.isover():
             return
         self.damage_taken += damage
-        self.damage_cooldown_timer.restart()
+        if self.damage_taken > 500: self.damage_taken = 500.0
+        if trigger_cooldown: self.damage_cooldown_timer.restart()
     
-    def on_collision_with_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
-        data['pre_solve_damage'] = self.damage_taken
+    def calculate_damage_from_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, invert_shapes : bool = False) -> tuple[float, str]:
         this_ball, opposant_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
         vec_to_opposant_norm : pymunk.Vec2d = (opposant_ball.body.position - this_ball.body.position).normalized()
         velocity_diff = (this_ball.body.velocity - opposant_ball.body.velocity)
@@ -429,15 +464,31 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if dot_product_taken < 0 or dot_product_taken2 < 0:
             damage_taken = 0
         else:
-            damage_taken = abs_opposant_velocity.get_length_sqrd() * dot_product_taken * dot_product_taken2 * 0.01 * 0.4
+            damage_taken = (abs_opposant_velocity.length + 10) ** 2 * dot_product_taken * dot_product_taken2 * 0.01 * 0.6
+        if damage_taken >= 5:
+            return damage_taken, f"Damage taken (player): {damage_taken} ({min(self.damage_taken + damage_taken, 500)})"
+        else:
+            log = f"Not enough damage taken (enemy) ({abs_opposant_velocity.length, dot_product_taken, dot_product_taken2})\n"
+            log += f"{vec_to_this_norm, abs_opposant_velocity.normalized(), neg_velocity_diff.normalized()}"
+            return damage_taken, log
+    
+    def on_collision_with_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any, invert_shapes : bool = False) -> bool:
+        this_ball, opposant_ball = arbiter.shapes if not invert_shapes else (arbiter.shapes[1], arbiter.shapes[0])
+        abs_this_velocity = this_ball.body.velocity
+        
+        data['pre_solve_damage'] = self.damage_taken
+        damage_taken : float = data['this_projected_damage_taken']
+        logs : str = data['this_log']
+        won_clash : bool = data['this_won_clash']
 
         if damage_taken < 5:
-            print(f"Not enough damage taken (enemy) ({abs_opposant_velocity.length, dot_product_taken, dot_product_taken2})")
-            print(vec_to_this_norm, abs_opposant_velocity.normalized(), neg_velocity_diff.normalized())
+            print(logs)
+        elif won_clash:
+            print(f"Enemy won clash ({data['this_projected_damage_dealt']:.3f} > {data['this_projected_damage_taken']:.3f})")
         else:
             self.take_damage(damage_taken)
             data['player_sprite'].damage_cooldown_timer.restart()
-            print("Damage taken (enemy):", damage_taken, f"({self.damage_taken})")
+            print(logs)
         data['this_speed_pre_solve'] = abs_this_velocity
         return True
     
@@ -449,7 +500,16 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         this_speed_diff = before_this_speed - data['this_speed_pre_solve']
 
-        this_ball.body.velocity = data['this_speed_pre_solve'] + (this_speed_diff * knockback_mult_this)
+        angle_to_ground : float = degrees(acos(this_speed_diff.normalized().dot((0, 1))))
+        lift : float
+        if angle_to_ground < 55 or data['pre_solve_damage'] < 100:
+            lift = 0
+        elif this_speed_diff.y > 15:
+            lift = 0
+        else:
+            lift = (data['pre_solve_damage'] - 100) / 5
+
+        this_ball.body.velocity = data['this_speed_pre_solve'] + (this_speed_diff * knockback_mult_this) + pymunk.Vec2d(0, -lift)
         print("Enemy speed:", before_this_speed.length, "-->", this_ball.body.velocity.length)
         print("----")
         self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
@@ -479,7 +539,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if damage_taken < 5:
             print("Not enough damage taken (projectile, to enemy):")
         else:
-            self.damage_taken += damage_taken
+            self.take_damage(damage_taken, ignore_cooldown=True, trigger_cooldown=False)
             print("Damage taken (projectile, to enemy):", damage_taken, f"({self.damage_taken})")
 
         data['this_speed_pre_solve'] = abs_this_velocity
@@ -487,7 +547,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def post_collision_with_proj_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> None:
         this_ball, _ = arbiter.shapes
-        knockback_mult_this : float = 0.4 * (0.5 + (data['pre_solve_damage'] / 200))
+        knockback_mult_this : float = 0.5 * (0.8 + (data['pre_solve_damage'] / 200))
 
         before_this_speed = this_ball.body.velocity
         this_speed_diff = before_this_speed - data['this_speed_pre_solve']
@@ -501,12 +561,23 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def before_step(self, delta : float, step_index : int, step_count : int):
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
         speed : int = 500
-        if self.position.x < 480 - 100:
-            move_vector += pygame.Vector2(1, 0)
-        elif self.position.x > 480 + 100:
-            move_vector += pygame.Vector2(-1, 0)
-        if self.position.y < 300:
-            move_vector += pygame.Vector2(0, 1)
+        if self.CONTROL_SCHEME == 0:
+            if self.position.x < 480 - 100:
+                move_vector += pygame.Vector2(1, 0)
+            elif self.position.x > 480 + 100:
+                move_vector += pygame.Vector2(-1, 0)
+            if self.position.y < 300:
+                move_vector += pygame.Vector2(0, 1)
+        else:
+            keyboard_map = pygame.key.get_pressed()
+            if keyboard_map[pygame.K_LEFT]:
+                move_vector += pygame.Vector2(-1, 0)
+            if keyboard_map[pygame.K_RIGHT]:
+                move_vector += pygame.Vector2(1, 0)
+            if keyboard_map[pygame.K_DOWN]:
+                move_vector += pygame.Vector2(0, 2.5)
+            if keyboard_map[pygame.K_UP]:
+                move_vector += pygame.Vector2(0, -2.5)
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
         self.sim_body.angular_velocity = 0.2 * self.current_direction
@@ -514,9 +585,9 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def apply_propulsion(self):
         self.current_direction *= -1
-        force : float = 2500
+        force : float = 2500 * 0.65 if self.CONTROL_SCHEME == 0 else 1000
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
-        self.sim_body.apply_impulse_at_world_point(tuple(direction * force * 0.65), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
+        self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -19))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
@@ -527,6 +598,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.angle = degrees(self.sim_body.angle)
     
     def update(self, delta: float):
+        if self.CONTROL_SCHEME == 1: return
         if self.shot_timer.duration < 0 and self.shot_timer.get_time() > 0.5:
             shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -10))
             shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
@@ -560,6 +632,18 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
+    
+    def handle_keydown_event(self, event : pygame.Event):
+        if not isinstance(core_object.game.state, core_object.game.STATES.NormalGameState):
+            return
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_RETURN, pygame.K_l) and self.CONTROL_SCHEME == 1:
+                self.apply_propulsion()
+    
+    @classmethod
+    def receive_keydown_event(cls, event : pygame.Event):
+        for element in cls.active_elements:
+            element.handle_keydown_event(event)
 
 class ProjectilePhysicsObject(BasePhysicsObject, sprite_count = 20):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
@@ -602,6 +686,14 @@ class ProjectilePhysicsObject(BasePhysicsObject, sprite_count = 20):
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
+
+def make_connections():
+    core_object.event_manager.bind(pygame.KEYDOWN, PlayerPhysicsObject.receive_keydown_event)
+    core_object.event_manager.bind(pygame.KEYDOWN, EnemyPhysicsObject.receive_keydown_event)
+
+def remove_connections():
+    core_object.event_manager.unbind(pygame.KEYDOWN, PlayerPhysicsObject.receive_keydown_event)
+    core_object.event_manager.unbind(pygame.KEYDOWN, EnemyPhysicsObject.receive_keydown_event)
 
 def runtime_imports():
     global src

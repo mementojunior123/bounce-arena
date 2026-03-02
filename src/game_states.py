@@ -95,7 +95,7 @@ class PhysicsTestGameState(NormalGameState):
         TIMESCALE_FACTOR : float = 0.2
         for sprite in BasePhysicsObject.active_elements:
             sprite.before_sim(delta)
-        step_count : int = min(max(round(target_step_count - self.steps_taken), 1), 20)
+        step_count : int = min(max(round(target_step_count - self.steps_taken), 1), 100)
         self.steps_taken += step_count
         for i in range(step_count):
             for sprite in BasePhysicsObject.active_elements:
@@ -188,4 +188,8 @@ class GameStates:
 
 
 def initialise_game(game_object : 'Game', event : pygame.Event):
+    EnemyPhysicsObject.CONTROL_SCHEME = 0
+    if event.mode == "test":
+        if event.playcount == 2:
+            EnemyPhysicsObject.CONTROL_SCHEME = 1
     game_object.state = game_object.STATES.PhysicsTestGameState(game_object)

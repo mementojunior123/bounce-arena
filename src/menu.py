@@ -73,6 +73,8 @@ class Menu(BaseMenu):
         self.stage_data : list[dict] = [None, {}, {}]
         self.stages = [None, 
         [BaseUiElements.new_text_sprite('Bounce Arena', (Menu.font_60, 'Black', False), 0, 'midtop', (centerx, 50)),
+        BaseUiElements.new_button('BlueButton', '2 Player', 1, 'bottomleft', (15, window_size[1] - 15), (0.5, 1.4), 
+        {'name' : '2players'}, (Menu.font_40, 'Black', False)),
         BaseUiElements.new_button('BlueButton', 'Play', 1, 'midbottom', (centerx, window_size[1] - 15), (0.5, 1.4), 
         {'name' : 'play_button'}, (Menu.font_40, 'Black', False)),
         BaseUiElements.new_button('BlueButton', 'Test', 1, 'bottomright', (wx - 15, window_size[1] - 15), (0.5, 1.4), 
@@ -136,7 +138,9 @@ class Menu(BaseMenu):
         match self.stage:
             case 1:
                 if name == "play_button":
-                    pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'test'}))
+                    pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'test', "playcount" : 1}))
+                elif name == "2players":
+                    pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'test', "playcount" : 2}))
                 if name == 'test_button':
                     self.goto_stage(2)
             case 2:

@@ -214,6 +214,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.angle = degrees(angle)
     
     def receive_input(self, input_data : str):
+        if len(self.registered_inputs) >= 2:
+            self.registered_inputs = self.registered_inputs[-1:]
         self.registered_inputs.append(input_data)
 
     def apply_input_before_step(self, delta : float, step_index : int, step_count : int):
@@ -544,6 +546,8 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.angle = degrees(angle)
     
     def receive_input(self, input_data : str):
+        if len(self.registered_inputs) >= 2:
+            self.registered_inputs = self.registered_inputs[-1:]
         self.registered_inputs.append(input_data)
 
     def apply_input_before_step(self, delta : float, step_index : int, step_count : int):

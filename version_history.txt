@@ -22,7 +22,10 @@ Version T05 (27-02-2026, 18:28):
     -Made some internal changes to the backend
     -Tweaked a few values
 
-Version T06 (03-02-2026, 14:48):
+Version T06 (02-03-2026, 14:48):
     -Added a 2 player mode
     -Made a few fixes and improvements to the damage system
     -Added some map geometry
+
+Version T07 (03-03-2026, 14:48):
+    -Added a very experimental 2 player mode

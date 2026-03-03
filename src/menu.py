@@ -77,8 +77,8 @@ class Menu(BaseMenu):
         {'name' : '2players'}, (Menu.font_40, 'Black', False)),
         BaseUiElements.new_button('BlueButton', 'Play', 1, 'midbottom', (centerx, window_size[1] - 15), (0.5, 1.4), 
         {'name' : 'play_button'}, (Menu.font_40, 'Black', False)),
-        BaseUiElements.new_button('BlueButton', 'Test', 1, 'bottomright', (wx - 15, window_size[1] - 15), (0.5, 1.4), 
-        {'name' : 'test_button'}, (Menu.font_40, 'Black', False))], #stage 1
+        BaseUiElements.new_button('BlueButton', 'Online', 1, 'bottomright', (wx - 15, window_size[1] - 15), (0.5, 1.4), 
+        {'name' : 'online_button'}, (Menu.font_40, 'Black', False))], #stage 1
 
         [BaseUiElements.new_button('BlueButton', 'Prev', 1, 'bottomleft', (20, window_size[1] - 25), (0.4, 1.0), 
         {'name' : 'prev_button'}, (Menu.font_40, 'Black', False)),
@@ -141,8 +141,8 @@ class Menu(BaseMenu):
                     pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'test', "playcount" : 1}))
                 elif name == "2players":
                     pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'test', "playcount" : 2}))
-                if name == 'test_button':
-                    self.goto_stage(2)
+                if name == 'online_button':
+                    pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'net_test'}))
             case 2:
                 if name == 'back_button':
                     self.goto_stage(1)

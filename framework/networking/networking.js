@@ -3,6 +3,8 @@
 const peerId = "`{PEERID}`";
 const is_host = `{IS_HOST}`;
 const network_key = "`{NETWORK_KEY}`";
+const debug_level = `{DEBUG_LEVEL}`;
+const MESSAGE_ENDER = "~&|^";
 
 const mod = import("https://esm.sh/peerjs@1.5.5?bundle-deps");
 mod.then((module) => {
@@ -13,7 +15,7 @@ mod.then((module) => {
     class NetworkClient {
         static createPeer(id, callback=()=>{}){
             let peer = new Peer(id, {
-                debug: 3,
+                debug: debug_level,
                 /*
                 port: 5000,
                 path: '/',
@@ -34,6 +36,7 @@ mod.then((module) => {
             this.connection_id = the_id;
             this.is_connected = false;
             this.destroyed = false;
+            this.last_ping = Date.now();
             if (is_host) {
                 this.peer = NetworkClient.createPeer(the_id, () => {
                     this.peer.on('connection', (connection)=>{
@@ -70,9 +73,10 @@ mod.then((module) => {
         sendMessage(data) {
             if (this.destroyed) {console.log("Peer has already been destroyed!"); return;}
             if (this.connection !== undefined && this.is_connected) {
+                if (data === "!!!ping!!!") {this.ping(); return;}
                 this.connection.send(data);
             } else {
-                console.log(`Attempted to send ${data}, but the connection was not yet established!`)
+                if (debug_level >= 1) {console.log(`Attempted to send ${data}, but the connection was not yet established!`);}
             }
         }
 
@@ -86,57 +90,71 @@ mod.then((module) => {
             this.connection = undefined;
             this.destroyed = true;
         }
+        ping() {
+            this.last_ping = Date.now();
+            this.connection.send("!!!ping!!!")
+        }
+
+        respond_ping() {
+            this.sendMessage("!!!pong!!!")
+        }
     }
 
     const noop = () => {};
 
     function on_data_received(data) {
+        if (data === "!!!ping!!!") {network_client.respond_ping();}
+        if (data == "!!!pong!!!") {
+            if (debug_level >= 1) {
+                console.log(`Ping: ${Date.now() - network_client.last_ping} ms (roundtrip)`)
+            }
+        }
         const actual_key = network_key + 'recv';
         window.dispatchEvent(new CustomEvent("networkrecvdata", {"detail" : data}));
-        console.log(`Received ${data}`);
-        let curr = localStorage.getItem(actual_key);
+        if (debug_level >= 3) {console.log(`Received ${data}`);}
+        const curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
-        localStorage.setItem(actual_key, curr + data);
+        localStorage.setItem(actual_key, curr + data + MESSAGE_ENDER);
     }
 
     function error_handler(error) {
         const data = error.toString()
         const actual_key = network_key + 'err';
         window.dispatchEvent(new CustomEvent("networkerr", {"detail" : data}));
-        console.log(data);
-        let curr = localStorage.getItem(actual_key);
+        if (debug_level >= 1) {console.log(data);}
+        const curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
-        localStorage.setItem(actual_key, curr + data);
+        localStorage.setItem(actual_key, curr + data + MESSAGE_ENDER);
     }
 
     function on_connection() {
         const data = "Connected!";
         const actual_key = network_key + 'conn';
         window.dispatchEvent(new CustomEvent("networkconn", {"detail" : data}));
-        console.log(data);
-        let curr = localStorage.getItem(actual_key);
+        if (debug_level >= 1) {console.log(data);}
+        const curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
-        localStorage.setItem(actual_key, curr + data);
+        localStorage.setItem(actual_key, curr + data + MESSAGE_ENDER);
     }
 
     function on_close() {
         const data = "Connection closed";
         const actual_key = network_key + 'close';
         window.dispatchEvent(new CustomEvent("networkclose", {"detail" : data}));
-        console.log(data);
-        let curr = localStorage.getItem(actual_key);
+        if (debug_level >= 1) {console.log(data);}
+        const curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
-        localStorage.setItem(actual_key, curr + data);
+        localStorage.setItem(actual_key, curr + data + MESSAGE_ENDER);
     }
 
     function on_dc() {
         const data = "Connection disconnected";
         const actual_key = network_key + 'dc';
         window.dispatchEvent(new CustomEvent("networkdc", {"detail" : data}));
-        console.log(data);
-        let curr = localStorage.getItem(actual_key);
+        if (debug_level >= 1) {console.log(data);}
+        const curr = localStorage.getItem(actual_key);
         if (curr === undefined) {curr = "";}
-        localStorage.setItem(actual_key, curr + data);
+        localStorage.setItem(actual_key, curr + data + MESSAGE_ENDER);
     }
 
     let network_client = new NetworkClient(is_host, peerId, on_data_received, error_handler, on_close, on_dc, on_connection);

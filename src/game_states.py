@@ -137,6 +137,161 @@ class GameOverState(GameState):
     def cleanup(self):
         self.prev.cleanup()
 
+class NetworkWaitingGameState(GameState):
+    def __init__(self, game_object : 'Game'):
+        self.game = game_object
+        self.is_host : bool = True if pygame.key.get_pressed()[pygame.K_f] else False
+        host_arg : str = "true" if self.is_host else "false"
+        core_object.log("Hosting :", host_arg.capitalize())
+        self.peer_id : int = "fsaffnaf_2players"
+        self.network_key : str = "tmp_" + self.peer_id + host_arg
+        core_object.networker.create_peer(self.peer_id, host_arg, self.network_key, debug_level=1)
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.bind(event_type, self.network_event_handler)
+        self.ui_message : TextSprite = TextSprite(pygame.Vector2(480, 10), "midtop", 0, 
+                        f"Waiting for connection...\nHosting: {host_arg.capitalize()}\nPeer id: {self.peer_id}",
+                        "waiting_message", text_settings=(self.game.font_40, "White", False),
+                        text_stroke_settings=("Black", 2), colorkey=(0, 255, 0))
+        core_object.main_ui.add(self.ui_message)
+        
+
+    def main_logic(self, delta : float):
+        pass
+
+    def transition_to_play(self):
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.unbind(event_type, self.network_event_handler)
+        core_object.main_ui.remove(self.ui_message)
+        self.game.state = Network2PlayerTestGameState(self.game, self.network_key, self.peer_id, self.is_host)
+    
+    def cleanup(self):
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.unbind(event_type, self.network_event_handler)
+        core_object.networker.destroy_peer(self.network_key)
+        
+    
+    def network_event_handler(self, event : pygame.Event):
+        if event.type == core_object.networker.NETWORK_RECEIVE_EVENT:
+            #self.game.alert_player(f"Received data {event.data}")
+            #core_object.log(f"pygame : Received data {event.data}")
+            if event.data == "hello":
+                self.transition_to_play()
+        elif event.type == core_object.networker.NETWORK_ERROR_EVENT:
+            self.game.alert_player(f"Network error occured : {event.info}")
+            core_object.log(f"pygame : Network error occured : {event.info}")
+        elif event.type == core_object.networker.NETWORK_CLOSE_EVENT:
+            self.game.alert_player("Network connection closed")
+            core_object.log(f"pygame : Network connection closed")
+        elif event.type == core_object.networker.NETWORK_DISCONNECT_EVENT:
+            self.game.alert_player("Network disconnected")
+            core_object.log("pygame : Network disconnected")
+        elif event.type == core_object.networker.NETWORK_CONNECTION_EVENT:
+            self.game.alert_player("Network connected")
+            core_object.log("pygame : Network connected")
+            if not self.is_host:
+                core_object.networker.send_network_message("hello", self.network_key)
+                self.transition_to_play()
+
+class Network2PlayerTestGameState(NormalGameState):
+    def __init__(self, game_object : 'Game', network_key : str, peer_id : str, is_host : bool):
+        self.game = game_object
+        self.ping_timer : Timer = Timer(1, core_object.game.game_timer.get_time)
+        host_pos, client_pos = pygame.Vector2(200, 100), pygame.Vector2(760, 440)
+        host_color, client_color = "Red", "Blue"
+        
+        this_pos, other_pos = (host_pos, client_pos) if is_host else (client_pos, host_pos)
+        this_color, other_color = (host_color, client_color) if is_host else (client_color, host_color)
+
+        self.player : NetworkTestPlayer = NetworkTestPlayer.spawn(this_pos, is_host, this_color)
+        self.other_player : NetworkSyncTestPlayer = NetworkSyncTestPlayer.spawn(other_pos, not is_host, other_color)
+        core_object.log("Hosting:", str(is_host))
+        src.sprites.test_player.make_connections()
+        self.is_host : bool = is_host
+        self.network_key : str = network_key
+        self.peer_id : str = peer_id
+        self.recent_messages : list[str] = []
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.bind(event_type, self.network_event_handler)
+        
+
+    def main_logic(self, delta : float):
+        if self.ping_timer.isover():
+            self.ping_timer.restart()
+            core_object.networker.send_network_message("!!!ping!!!", self.network_key)
+
+        for message in self.recent_messages:
+            if self.is_host:
+                self.parse_and_react_as_host(message)
+            else:
+                self.parse_and_react_as_client(message)
+        self.recent_messages.clear()
+
+        Sprite.update_all_sprites(delta)
+        Sprite.update_all_registered_classes(delta)
+        if self.is_host:
+            core_object.networker.send_network_message(
+                  f"{self.player.x};{self.player.y};{self.player.angle};" 
+                + f"{self.other_player.x};{self.other_player.y};{self.other_player.angle}", self.network_key
+            )
+        else:
+            if self.player.attempted_move or self.player.attempted_rotate:
+                core_object.networker.send_network_message(
+                    f"{self.player.attempted_move.x};{self.player.attempted_move.y};{self.player.attempted_rotate};{delta}", self.network_key
+                )
+        
+    
+    def parse_and_react_as_host(self, data : str):
+        args = data.split(";")
+        if not (len(args) == 4):
+            return
+        self.other_player.sync_other_is_client(pygame.Vector2(float(args[0]), float(args[1])), float(args[2]), float(args[3]))
+    
+    def parse_and_react_as_client(self, data : str):
+        args = data.split(";")
+        if not (len(args) == 6):
+            return
+        self.other_player.sync_other_is_host(pygame.Vector2(float(args[0]), float(args[1])), float(args[2]))
+        sync_position : pygame.Vector2 = pygame.Vector2(float(args[3]), float(args[4]))
+        sync_angle : float = float(args[5])
+        if (self.player.position - sync_position).magnitude() > 2:
+            self.player.position = sync_position
+        if abs(self.player.angle - sync_angle) > 2:
+            self.player.angle = sync_angle
+    
+    def cleanup(self):
+        src.sprites.test_player.remove_connections()
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.unbind(event_type, self.network_event_handler)
+        core_object.networker.destroy_peer(self.network_key)
+        
+    
+    def network_event_handler(self, event : pygame.Event):
+        if event.type == core_object.networker.NETWORK_RECEIVE_EVENT:
+            ...
+            #self.game.alert_player(f"Received data {event.data}")
+            #core_object.log(f"pygame : Received data {event.data}")
+            self.recent_messages.append(event.data)
+        elif event.type == core_object.networker.NETWORK_ERROR_EVENT:
+            self.game.alert_player(f"Network error occured : {event.info}")
+            core_object.log(f"pygame : Network error occured : {event.info}")
+        elif event.type == core_object.networker.NETWORK_CLOSE_EVENT:
+            self.game.alert_player("Network connection closed")
+            core_object.log(f"pygame : Network connection closed")
+        elif event.type == core_object.networker.NETWORK_DISCONNECT_EVENT:
+            self.game.alert_player("Network disconnected")
+            core_object.log("pygame : Network disconnected")
+        elif event.type == core_object.networker.NETWORK_CONNECTION_EVENT:
+            self.game.alert_player("Network connected")
+            core_object.log("pygame : Network connected")
+    
+    def handle_key_event(self, event : pygame.Event):
+        pass
+
 class PausedGameState(GameState):
     def __init__(self, game_object : 'Game', previous : GameState):
         super().__init__(game_object)
@@ -163,9 +318,9 @@ def runtime_imports():
     from framework.core.core import core_object
 
     #runtime imports for game classes
-    global src, TestPlayer      
+    global src, TestPlayer, NetworkTestPlayer, NetworkSyncTestPlayer
     import src.sprites.test_player
-    from src.sprites.test_player import TestPlayer
+    from src.sprites.test_player import TestPlayer, NetworkTestPlayer, NetworkSyncTestPlayer
 
     global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject
     import src.sprites.physics_object
@@ -192,4 +347,7 @@ def initialise_game(game_object : 'Game', event : pygame.Event):
     if event.mode == "test":
         if event.playcount == 2:
             EnemyPhysicsObject.CONTROL_SCHEME = 1
-    game_object.state = game_object.STATES.PhysicsTestGameState(game_object)
+    if event.mode == "net_test":
+        game_object.state = NetworkWaitingGameState(game_object)
+    else:
+        game_object.state = game_object.STATES.PhysicsTestGameState(game_object)

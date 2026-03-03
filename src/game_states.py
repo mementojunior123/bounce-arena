@@ -164,7 +164,7 @@ class NetworkWaitingGameState(GameState):
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.unbind(event_type, self.network_event_handler)
         core_object.main_ui.remove(self.ui_message)
-        self.game.state = Network2PlayerTestGameState(self.game, self.network_key, self.peer_id, self.is_host)
+        self.game.state = PhysicsNetworkedTestGameState(self.game, self.network_key, self.peer_id, self.is_host)
     
     def cleanup(self):
         for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
@@ -292,6 +292,198 @@ class Network2PlayerTestGameState(NormalGameState):
     def handle_key_event(self, event : pygame.Event):
         pass
 
+class PhysicsNetworkedTestGameState(NormalGameState):
+    SIMULATION_STEP_COUNT : int = 5
+    def __init__(self, game_object : 'Game', network_key : str, peer_id : str, is_host : bool):
+        PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES if is_host else ControlSchemes.NONE
+        EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES if not is_host else ControlSchemes.NONE
+        self.recent_messages : list[str] = []
+        self.ping_timer : Timer = Timer(1, core_object.game.game_timer.get_time)
+        self.is_host : bool = is_host
+        self.network_key : str = network_key
+        self.peer_id : str = peer_id
+
+        self.game = game_object
+        self.simulation_space : pymunk.Space = pymunk.Space()
+        self.simulation_space.gravity = (0, 7.5)
+
+        player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
+                                           "collision_type" : CollisionTypes.PLAYER_BALL, "collision_category" : [CollisionTypes.PLAYER_BALL], 
+                                           "collision_mask" : [CollisionTypes.ENEMY_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.ENEMY_PROJECTILE]}
+        self.host : PlayerPhysicsObject = src.level_geometry.make_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
+
+        enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9,
+                                          "collision_type" : CollisionTypes.ENEMY_BALL, "collision_category" : [CollisionTypes.ENEMY_BALL], 
+                                          "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.PLAYER_PROJECTILE]}
+        self.client : EnemyPhysicsObject = src.level_geometry.make_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)
+
+        for level_geomerty in src.level_geometry.test_level_geometry:
+            src.level_geometry.make_level_geometry_object(level_geomerty, self.simulation_space)
+
+        src.sprites.physics_object.make_connections()
+
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.bind(event_type, self.network_event_handler)
+
+        self.steps_taken : int = 0
+
+    @staticmethod
+    def on_collision(arbiter : pymunk.Arbiter, sim_space : pymunk.Space, data : Any):
+        pass
+
+    def main_logic(self, delta : float):
+        if self.ping_timer.isover():
+            self.ping_timer.restart()
+            core_object.networker.send_network_message("!!!ping!!!", self.network_key)
+
+        for message in self.recent_messages:
+            if self.is_host:
+                self.parse_and_react_as_host(message)
+            else:
+                self.parse_and_react_as_client(message)
+        self.recent_messages.clear()
+
+        target_step_count : int = (self.game.game_timer.get_time() / (1 / 60) * self.SIMULATION_STEP_COUNT)
+        TIMESCALE_FACTOR : float = 0.2
+        for sprite in BasePhysicsObject.active_elements:
+            sprite.before_sim(delta)
+        step_count : int = min(max(round(target_step_count - self.steps_taken), 1), 100)
+        self.steps_taken += step_count
+        for i in range(step_count):
+            for sprite in BasePhysicsObject.active_elements:
+                sprite.before_step(delta, i, step_count)
+            self.simulation_space.step((delta * TIMESCALE_FACTOR) / step_count)
+
+            for sprite in BasePhysicsObject.active_elements:
+                sprite.after_step(delta, i, step_count)
+
+        for sprite in BasePhysicsObject.active_elements:
+            sprite.post_sim(delta)
+        
+        Sprite.update_all_sprites(delta)
+        Sprite.update_all_registered_classes(delta)
+        
+        # Implement sync logic
+        if self.is_host:
+            # Sync host ball info
+            host_sync_message : str = f"SYNC:HOST|{self.host.position.x};{self.host.position.y};"
+            host_sync_message += f"{self.host.sim_body.velocity.x};{self.host.sim_body.velocity.y};"
+            host_sync_message += f"{self.host.sim_body.angle}"
+
+            core_object.networker.send_network_message(host_sync_message, self.network_key)
+
+            # Sync client ball info
+            client_sync_message : str = f"SYNC:CLIENT|{self.client.position.x};{self.client.position.y};"
+            client_sync_message += f"{self.client.sim_body.velocity.x};{self.client.sim_body.velocity.y};"
+            client_sync_message += f"{self.client.sim_body.angle}"
+
+            core_object.networker.send_network_message(client_sync_message, self.network_key)
+
+            # Damage sync
+            damage_sync_message : str = f"SYNC:DAMAGE|{self.host.damage_taken};{self.client.damage_taken}"
+
+            core_object.networker.send_network_message(damage_sync_message, self.network_key)
+
+            # Loosing or winning
+            margin : int = 50
+            inbound_rect : pygame.Rect = pygame.Rect(-margin, -margin, 960 + 2 * margin, 540 + 2 * margin)
+            if not inbound_rect.collidepoint(self.host.position):
+                self.switch_to_gameover("You lose!")
+                core_object.networker.send_network_message("VICTORY:CLIENT", self.network_key)
+            elif not inbound_rect.collidepoint(self.client.position):
+                self.switch_to_gameover("You win!")
+                core_object.networker.send_network_message("VICTORY:HOST", self.network_key)
+        else:
+            # Client only sends inputs
+            pressed = pygame.key.get_pressed()
+            left_input : bool = pressed[pygame.K_a] or pressed[pygame.K_LEFT]
+            right_input : bool = pressed[pygame.K_d] or pressed[pygame.K_RIGHT]
+            down_input : bool = pressed[pygame.K_s] or pressed[pygame.K_DOWN]
+            up_input : bool = pressed[pygame.K_w] or pressed[pygame.K_UP]
+            shoot_input : bool = False
+            inputs : list[bool] = [left_input, right_input, down_input, up_input, shoot_input]
+            message : str = "CLIENT_INPUT|"
+            for singular_input in inputs: message += str(int(singular_input))
+            core_object.networker.send_network_message(message, self.network_key)      
+    
+    def parse_and_react_as_host(self, message : str):
+        if message.startswith("CLIENT_INPUT"):
+            parts : list[str] = message.split("|")
+            if len(parts) != 2:
+                return
+            args : list[str] = parts[1].split(";")
+            if len(args) != 1:
+                return
+            self.client.receive_input(args[0])
+    
+    def parse_and_react_as_client(self, message : str):
+        if message.startswith("VICTORY"):
+            self.switch_to_gameover("You win!" if message.endswith("CLIENT") else "You lose!")
+        if message.startswith("SYNC:HOST") or message.startswith("SYNC:CLIENT"):
+            parts : list[str] = message.split("|")
+            if len(parts) != 2:
+                return
+            args : list[str] = parts[1].split(";")
+            if len(args) != 5:
+                return
+            if "HOST" in message:
+                self.host.sync_info((float(args[0]), float(args[1])), (float(args[2]), float(args[3])), float(args[4]))
+            elif "CLIENT" in message:
+                self.client.sync_info((float(args[0]), float(args[1])), (float(args[2]), float(args[3])), float(args[4]))
+        if message.startswith("SYNC:DAMAGE"):
+            parts : list[str] = message.split("|")
+            if len(parts) != 2:
+                return
+            args : list[str] = parts[1].split(";")
+            if len(args) != 2:
+                return
+            self.host.damage_taken = float(args[0])
+            self.client.damage_taken = float(args[1])
+
+    def switch_to_gameover(self, message : str):
+        src.sprites.physics_object.remove_connections()
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.unbind(event_type, self.network_event_handler)
+        self.game.state = GameOverState(self.game, self, message)
+
+        def destroy_peer():
+            core_object.networker.destroy_peer(self.network_key)
+        core_object.task_scheduler.schedule_task(3, destroy_peer)
+    
+    def cleanup(self):
+        src.sprites.physics_object.remove_connections()
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.unbind(event_type, self.network_event_handler)
+        core_object.networker.destroy_peer(self.network_key)
+    
+    def network_event_handler(self, event : pygame.Event):
+        if event.type == core_object.networker.NETWORK_RECEIVE_EVENT:
+            ...
+            #self.game.alert_player(f"Received data {event.data}")
+            #core_object.log(f"pygame : Received data {event.data}")
+            self.recent_messages.append(event.data)
+        elif event.type == core_object.networker.NETWORK_ERROR_EVENT:
+            self.game.alert_player(f"Network error occured : {event.info}")
+            core_object.log(f"pygame : Network error occured : {event.info}")
+        elif event.type == core_object.networker.NETWORK_CLOSE_EVENT:
+            self.game.alert_player("Network connection closed")
+            core_object.log(f"pygame : Network connection closed")
+        elif event.type == core_object.networker.NETWORK_DISCONNECT_EVENT:
+            self.game.alert_player("Network disconnected")
+            core_object.log("pygame : Network disconnected")
+        elif event.type == core_object.networker.NETWORK_CONNECTION_EVENT:
+            self.game.alert_player("Network connected")
+            core_object.log("pygame : Network connected")
+    
+    def handle_key_event(self, event : pygame.Event):
+        pass
+
+    def pause(self): # disable pausing/unpausing
+        pass
+
 class PausedGameState(GameState):
     def __init__(self, game_object : 'Game', previous : GameState):
         super().__init__(game_object)
@@ -322,9 +514,9 @@ def runtime_imports():
     import src.sprites.test_player
     from src.sprites.test_player import TestPlayer, NetworkTestPlayer, NetworkSyncTestPlayer
 
-    global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject
+    global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, ControlSchemes
     import src.sprites.physics_object
-    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject
+    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, ControlSchemes
 
     global LevelGeometry
     import src.level_geometry
@@ -343,10 +535,12 @@ class GameStates:
 
 
 def initialise_game(game_object : 'Game', event : pygame.Event):
-    EnemyPhysicsObject.CONTROL_SCHEME = 0
+    EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.AI
+    PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES
     if event.mode == "test":
         if event.playcount == 2:
-            EnemyPhysicsObject.CONTROL_SCHEME = 1
+            EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.RIGHT_SIDE
+            PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.LEFT_SIDE
     if event.mode == "net_test":
         game_object.state = NetworkWaitingGameState(game_object)
     else:

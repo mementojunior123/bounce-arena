@@ -14,6 +14,14 @@ from math import degrees, acos
 import random
 from typing import Any, Self
 from src.collision_type_constants import CollisionTypes
+from enum import IntEnum
+
+class ControlSchemes:
+    NONE = 0
+    AI = 1
+    LEFT_SIDE = 2
+    RIGHT_SIDE = 3
+    BOTH_SIDES = 4
 
 class BasePhysicsObject(Sprite, sprite_count = 0):
     IMAGE_SIZE : tuple[int, int]|list[int] = (20, 60)
@@ -139,13 +147,15 @@ class BasicPhysicsObject(BasePhysicsObject, sprite_count = 20):
         super().draw(display)
 
 class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
-    CONTROL_SCHEME : int = 0
+    CONTROL_SCHEME : int = ControlSchemes.BOTH_SIDES
     def __init__(self) -> None:
         super().__init__()
         self.damage_taken : float
         self.damage_taken_uisprite : TextSprite
         self.damage_cooldown_timer : Timer
         self.current_direction : int
+        self.shot_timer : Timer
+        self.registered_inputs : list
         pass
 
     @classmethod
@@ -167,6 +177,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.damage_taken = 0
         element.damage_cooldown_timer = Timer(0.1, core_object.game.game_timer.get_time)
         element.current_direction = 1
+        element.shot_timer = Timer(-1, core_object.game.game_timer.get_time)
+        element.registered_inputs = []
 
         if pymunk.version[0] == "6":
             handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL)
@@ -189,6 +201,43 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         core_object.main_ui.add_multiple([element.damage_taken_uisprite])
         cls.unpool(element)
         return element
+
+    def sync_info(self, position : tuple[float, float], velocity : tuple[float, float], angle : float,
+                  margins : tuple[float, float, float] = (2, 2, 0.03)):
+        if (self.position - position).magnitude() > margins[0]:
+            self.sim_body.position = pymunk.Vec2d(position[0], position[1])
+            self.position = pygame.Vector2(self.sim_body.position)
+        if (self.sim_body.velocity - velocity).length > margins[1]:
+            self.sim_body.velocity = pymunk.Vec2d(velocity[0], velocity[1])
+        if abs(self.sim_body.angle - angle) > margins[2]:
+            self.sim_body.angle = angle
+            self.angle = degrees(angle)
+    
+    def receive_input(self, input_data : str):
+        self.registered_inputs.append(input_data)
+
+    def apply_input_before_step(self, delta : float, step_index : int, step_count : int):
+        move_vector : pygame.Vector2 = pygame.Vector2(0,0)
+        speed : int = 500
+        angular_velocity : float = 0
+        input_this_frame : str = self.registered_inputs[0] if self.registered_inputs else "00000"
+        if input_this_frame[0] == "1":
+            move_vector += pygame.Vector2(-1, 0)
+        if input_this_frame[1] == "1":
+            move_vector += pygame.Vector2(1, 0)
+        if input_this_frame[2] == "1":
+            move_vector += pygame.Vector2(0, 2.5)
+        if input_this_frame[3] == "1":
+            move_vector += pygame.Vector2(0, -2.5)
+        angular_velocity = self.current_direction * 0.5
+        if move_vector:
+            self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
+        if angular_velocity:
+            self.sim_body.angular_velocity = angular_velocity * 0.5
+        else:
+            pass
+            self.sim_body.angular_velocity = 0
+
     
     def take_damage(self, damage : float, ignore_cooldown : bool = False, trigger_cooldown : bool = True):
         if not ignore_cooldown and not self.damage_cooldown_timer.isover():
@@ -317,26 +366,32 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     
     
     def before_step(self, delta : float, step_index : int, step_count : int):
+        if self.CONTROL_SCHEME == ControlSchemes.NONE:
+            self.apply_input_before_step(delta, step_index, step_count)
+            return
+        left_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.LEFT_SIDE, ControlSchemes.BOTH_SIDES)
+        right_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.RIGHT_SIDE, ControlSchemes.BOTH_SIDES)
         keyboard_map = pygame.key.get_pressed()
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
         speed : int = 500
         angular_velocity : float = 0
-        if keyboard_map[pygame.K_a] or (keyboard_map[pygame.K_LEFT] and self.CONTROL_SCHEME == 1):
-            move_vector += pygame.Vector2(-1, 0)
-        if keyboard_map[pygame.K_d] or (keyboard_map[pygame.K_RIGHT] and self.CONTROL_SCHEME == 1):
-            move_vector += pygame.Vector2(1, 0)
-        if keyboard_map[pygame.K_s] or (keyboard_map[pygame.K_DOWN] and self.CONTROL_SCHEME == 1):
-            move_vector += pygame.Vector2(0, 2.5)
-        if keyboard_map[pygame.K_w] or (keyboard_map[pygame.K_UP] and self.CONTROL_SCHEME == 1):
-            move_vector += pygame.Vector2(0, -2.5)
-        rotation_method : int = 1
-        if rotation_method == 0:
-            if keyboard_map[pygame.K_q]:
-                angular_velocity += -1
-            if keyboard_map[pygame.K_e]:
-                angular_velocity += 1
+        if self.CONTROL_SCHEME == ControlSchemes.AI:
+            if self.position.x < 480 - 100:
+                move_vector += pygame.Vector2(1, 0)
+            elif self.position.x > 480 + 100:
+                move_vector += pygame.Vector2(-1, 0)
+            if self.position.y < 300:
+                move_vector += pygame.Vector2(0, 1)
         else:
-            angular_velocity = self.current_direction * 0.5
+            if (left_side_usable and keyboard_map[pygame.K_a]) or (keyboard_map[pygame.K_LEFT] and right_side_usable):
+                move_vector += pygame.Vector2(-1, 0)
+            if (left_side_usable and keyboard_map[pygame.K_d]) or (keyboard_map[pygame.K_RIGHT] and right_side_usable):
+                move_vector += pygame.Vector2(1, 0)
+            if (left_side_usable and keyboard_map[pygame.K_s]) or (keyboard_map[pygame.K_DOWN] and right_side_usable):
+                move_vector += pygame.Vector2(0, 2.5)
+            if (left_side_usable and keyboard_map[pygame.K_w]) or (keyboard_map[pygame.K_UP] and right_side_usable):
+                move_vector += pygame.Vector2(0, -2.5)
+        angular_velocity = self.current_direction * 0.5
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
         if angular_velocity:
@@ -344,6 +399,31 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         else:
             pass
             self.sim_body.angular_velocity = 0
+    
+    def update(self, delta : float):
+        if self.CONTROL_SCHEME != ControlSchemes.AI: return
+        if self.shot_timer.duration < 0 and self.shot_timer.get_time() > 0.5:
+            shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -10))
+            shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
+            shot_direction : pymunk.Vec2d = (shot_end - shot_origin).normalized()
+            hits = self.sim_body.space.segment_query(shot_origin, shot_end, 2, pymunk.ShapeFilter())
+            for hit in hits:
+                if not hit.shape:
+                    continue
+                distance : float = (self.sim_body.position - hit.point).length
+                hit_to_center : pymunk.Vec2d = (hit.shape.body.position - hit.point).normalized()
+                if distance > 25:
+                    if not hit_to_center.dot(shot_direction) > 0.95:
+                        continue
+                elif not hit_to_center.dot(shot_direction) > 0.60:
+                    continue
+                if hit.shape.collision_type == CollisionTypes.ENEMY_BALL:
+                    self.apply_propulsion()
+                    self.shot_timer.set_duration(random.uniform(2, 3))
+                    break
+        elif self.shot_timer.isover():
+            self.apply_propulsion()
+            self.shot_timer.set_duration(-1)
     
     def apply_propulsion(self):
         force : float = 1000
@@ -359,6 +439,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
         self.angle = degrees(self.sim_body.angle)
+        if self.registered_inputs:
+            self.registered_inputs.pop(0)
     
     def update(self, delta: float):
         pass
@@ -369,15 +451,20 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.damage_taken_uisprite = None
         self.damage_cooldown_timer = None
         self.current_direction = None
+        self.shot_timer = None
+        self.registered_inputs = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
     
     def handle_keydown_event(self, event : pygame.Event):
+        left_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.LEFT_SIDE, ControlSchemes.BOTH_SIDES)
+        right_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.RIGHT_SIDE, ControlSchemes.BOTH_SIDES)
         if not isinstance(core_object.game.state, core_object.game.STATES.NormalGameState):
             return
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE or (event.key == pygame.K_RETURN and self.CONTROL_SCHEME == 1):
+            if ((event.key == pygame.K_SPACE and left_side_usable) 
+                or (event.key in (pygame.K_RETURN, pygame.K_l) and right_side_usable)):
                 self.apply_propulsion()
     
     @classmethod
@@ -387,7 +474,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
 
 class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
-    CONTROL_SCHEME = 1
+    CONTROL_SCHEME = ControlSchemes.AI
     def __init__(self) -> None:
         super().__init__()
         self.current_direction : int
@@ -395,6 +482,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.damage_taken : float
         self.damage_taken_uisprite : TextSprite
         self.damage_cooldown_timer : Timer
+        self.registered_inputs : list
         pass
 
     @classmethod
@@ -416,6 +504,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.current_direction = 1
         element.shot_timer = Timer(-1, core_object.game.game_timer.get_time)
         element.damage_cooldown_timer = Timer(0.1, core_object.game.game_timer.get_time)
+        element.registered_inputs = []
 
         element.damage_taken = 0
         if pymunk.version[0] == "6":
@@ -442,6 +531,42 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         cls.unpool(element)
         return element
+
+    def sync_info(self, position : tuple[float, float], velocity : tuple[float, float], angle : float,
+                  margins : tuple[float, float, float] = (2, 2, 0.03)):
+        if (self.position - position).magnitude() > margins[0]:
+            self.sim_body.position = pymunk.Vec2d(position[0], position[1])
+            self.position = pygame.Vector2(self.sim_body.position)
+        if (self.sim_body.velocity - velocity).length > margins[1]:
+            self.sim_body.velocity = pymunk.Vec2d(velocity[0], velocity[1])
+        if abs(self.sim_body.angle - angle) > margins[2]:
+            self.sim_body.angle = angle
+            self.angle = degrees(angle)
+    
+    def receive_input(self, input_data : str):
+        self.registered_inputs.append(input_data)
+
+    def apply_input_before_step(self, delta : float, step_index : int, step_count : int):
+        move_vector : pygame.Vector2 = pygame.Vector2(0,0)
+        speed : int = 500
+        angular_velocity : float = 0
+        input_this_frame : str = self.registered_inputs[0] if self.registered_inputs else "00000"
+        if input_this_frame[0] == "1":
+            move_vector += pygame.Vector2(-1, 0)
+        if input_this_frame[1] == "1":
+            move_vector += pygame.Vector2(1, 0)
+        if input_this_frame[2] == "1":
+            move_vector += pygame.Vector2(0, 2.5)
+        if input_this_frame[3] == "1":
+            move_vector += pygame.Vector2(0, -2.5)
+        angular_velocity = self.current_direction * 0.5
+        if move_vector:
+            self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
+        if angular_velocity:
+            self.sim_body.angular_velocity = angular_velocity * 0.5
+        else:
+            pass
+            self.sim_body.angular_velocity = 0
 
     def take_damage(self, damage : float, ignore_cooldown : bool = False, trigger_cooldown : bool = True):
         if not ignore_cooldown and not self.damage_cooldown_timer.isover():
@@ -558,10 +683,18 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
     
     
+
     def before_step(self, delta : float, step_index : int, step_count : int):
+        if self.CONTROL_SCHEME == ControlSchemes.NONE:
+            self.apply_input_before_step(delta, step_index, step_count)
+            return
+        left_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.LEFT_SIDE, ControlSchemes.BOTH_SIDES)
+        right_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.RIGHT_SIDE, ControlSchemes.BOTH_SIDES)
+        keyboard_map = pygame.key.get_pressed()
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
         speed : int = 500
-        if self.CONTROL_SCHEME == 0:
+        angular_velocity : float = 0
+        if self.CONTROL_SCHEME == ControlSchemes.AI:
             if self.position.x < 480 - 100:
                 move_vector += pygame.Vector2(1, 0)
             elif self.position.x > 480 + 100:
@@ -569,23 +702,27 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             if self.position.y < 300:
                 move_vector += pygame.Vector2(0, 1)
         else:
-            keyboard_map = pygame.key.get_pressed()
-            if keyboard_map[pygame.K_LEFT]:
+            if (left_side_usable and keyboard_map[pygame.K_a]) or (keyboard_map[pygame.K_LEFT] and right_side_usable):
                 move_vector += pygame.Vector2(-1, 0)
-            if keyboard_map[pygame.K_RIGHT]:
+            if (left_side_usable and keyboard_map[pygame.K_d]) or (keyboard_map[pygame.K_RIGHT] and right_side_usable):
                 move_vector += pygame.Vector2(1, 0)
-            if keyboard_map[pygame.K_DOWN]:
+            if (left_side_usable and keyboard_map[pygame.K_s]) or (keyboard_map[pygame.K_DOWN] and right_side_usable):
                 move_vector += pygame.Vector2(0, 2.5)
-            if keyboard_map[pygame.K_UP]:
+            if (left_side_usable and keyboard_map[pygame.K_w]) or (keyboard_map[pygame.K_UP] and right_side_usable):
                 move_vector += pygame.Vector2(0, -2.5)
+        angular_velocity = self.current_direction * 0.5
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
-        self.sim_body.angular_velocity = 0.2 * self.current_direction
+        if angular_velocity:
+            self.sim_body.angular_velocity = angular_velocity * 0.5
+        else:
+            pass
+            self.sim_body.angular_velocity = 0
 
     
     def apply_propulsion(self):
         self.current_direction *= -1
-        force : float = 2500 * 0.65 if self.CONTROL_SCHEME == 0 else 1000
+        force : float = 2500 * 0.65 if self.CONTROL_SCHEME == ControlSchemes.AI else 1000
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
         self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
 
@@ -596,9 +733,11 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
         self.angle = degrees(self.sim_body.angle)
+        if self.registered_inputs:
+            self.registered_inputs.pop(0)
     
     def update(self, delta: float):
-        if self.CONTROL_SCHEME == 1: return
+        if self.CONTROL_SCHEME != ControlSchemes.AI: return
         if self.shot_timer.duration < 0 and self.shot_timer.get_time() > 0.5:
             shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -10))
             shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
@@ -629,15 +768,19 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.damage_taken = None
         self.damage_taken_uisprite = None
         self.damage_cooldown_timer = None
+        self.registered_inputs = None
     
     def draw(self, display : pygame.Surface):
         super().draw(display)
     
     def handle_keydown_event(self, event : pygame.Event):
+        left_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.LEFT_SIDE, ControlSchemes.BOTH_SIDES)
+        right_side_usable : bool = self.CONTROL_SCHEME in (ControlSchemes.RIGHT_SIDE, ControlSchemes.BOTH_SIDES)
         if not isinstance(core_object.game.state, core_object.game.STATES.NormalGameState):
             return
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_RETURN, pygame.K_l) and self.CONTROL_SCHEME == 1:
+            if ((event.key == pygame.K_SPACE and left_side_usable) 
+                or (event.key in (pygame.K_RETURN, pygame.K_l) and right_side_usable)):
                 self.apply_propulsion()
     
     @classmethod

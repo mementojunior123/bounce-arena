@@ -203,7 +203,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         return element
 
     def sync_info(self, position : tuple[float, float], velocity : tuple[float, float], angle : float,
-                  margins : tuple[float, float, float] = (2, 2, 0.03)):
+                  margins : tuple[float, float, float] = (8, 4, 0.09)):
         if (self.position - position).magnitude() > margins[0]:
             self.sim_body.position = pymunk.Vec2d(position[0], position[1])
             self.position = pygame.Vector2(self.sim_body.position)
@@ -533,7 +533,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         return element
 
     def sync_info(self, position : tuple[float, float], velocity : tuple[float, float], angle : float,
-                  margins : tuple[float, float, float] = (2, 2, 0.03)):
+                  margins : tuple[float, float, float] = (8, 4, 0.09)):
         if (self.position - position).magnitude() > margins[0]:
             self.sim_body.position = pymunk.Vec2d(position[0], position[1])
             self.position = pygame.Vector2(self.sim_body.position)

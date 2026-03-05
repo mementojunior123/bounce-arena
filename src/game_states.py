@@ -137,20 +137,95 @@ class GameOverState(GameState):
     def cleanup(self):
         self.prev.cleanup()
 
-class NetworkWaitingGameState(GameState):
+class NetworkEnterCodeGameState(GameState):
     def __init__(self, game_object : 'Game'):
         self.game = game_object
-        self.is_host : bool = True if pygame.key.get_pressed()[pygame.K_f] else False
+        self.textsprite1 = TextSprite(pygame.Vector2(480, 20), "midtop", 0, "Roomcode:", "roomcode_title", 
+                                      text_settings=(Game.font_50, "White", False), text_stroke_settings=("Black", 2))
+        self.text_entry = TextSprite(pygame.Vector2(480, 70), "midtop", 0, "", text_settings=(Game.font_40, "White", False), text_stroke_settings=("Black", 2))
+        self.textsprite2 = TextSprite(pygame.Vector2(480, 430), "midtop", 0, "Backspace to erase\nEnter to confirm\nEscape to exit", "misc_text", 
+                                      text_settings=(Game.font_40, "Black", False))
+        self.flashing_text = TextSprite(pygame.Vector2(480, 120), "midtop", 0, "_", text_settings=(Game.font_40, "White", False), text_stroke_settings=("Black", 2))
+        self.flash_timer : Timer = Timer(1, self.game.game_timer.get_time)
+        core_object.main_ui.add_multiple([self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text])
+        pygame.key.start_text_input()
+        core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
+        core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
+    
+    def main_logic(self, delta):
+        if int(self.flash_timer.get_time() // 0.5) % 2 == 0:
+            self.flashing_text.visible = True
+        else:
+            self.flashing_text.visible = False
+        if self.flash_timer.isover(): self.flash_timer.restart()
+
+    def handle_key_event(self, event : pygame.Event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                core_object.end_game()
+            elif event.key == pygame.K_BACKSPACE:
+                if self.text_entry.text: 
+                    self.text_entry.text = self.text_entry.text[:-1]
+                if not self.text_entry.text:
+                    self.text_entry.visible = False
+            elif event.key == pygame.K_RETURN:
+                room_code : str = self.text_entry.text
+                if not NetworkWaitingGameState.validate_roomcode(room_code):
+                    self.game.alert_player("This code is not valid!")
+                else:
+                    self.tranisition_to_wait(room_code)
+    
+    def handle_textinput_event(self, event : pygame.Event):
+        if event.type == pygame.TEXTEDITING:
+            print("TEXTEDITING:", event.__dict__)
+        elif event.type == pygame.TEXTINPUT:
+            print("TEXTINPUT:", event.__dict__)
+            self.text_entry.text += event.text.lower()
+            self.text_entry.visible = True
+    
+    def tranisition_to_wait(self, room_code : str):
+        core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
+        core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
+        pygame.key.stop_text_input()
+        for sprite in (self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text):
+            core_object.main_ui.remove(sprite)
+
+        self.game.state = NetworkWaitingGameState(self.game, False, "tmp_" + room_code + "false", NetworkWaitingGameState.PREFIX + room_code)
+    
+    def cleanup(self):
+        core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
+        core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
+        pygame.key.stop_text_input()
+            
+
+class NetworkWaitingGameState(GameState):
+    PREFIX = "BOUNCE_ARENA_TEST"
+    VALID_CHARACTERS : str = "abcdefghijklmnopqrstuvwxyz1234567890"
+    @staticmethod
+    def generate_roomcode() -> str:
+        return "".join(random.choices(NetworkWaitingGameState.VALID_CHARACTERS, k=10))
+    
+    @staticmethod
+    def validate_roomcode(code : str) -> bool:
+        if len(code) != 10:
+            return False
+        if any(c not in NetworkWaitingGameState.VALID_CHARACTERS for c in code):
+            return False
+        return True
+    
+    def __init__(self, game_object : 'Game', is_host : bool, network_key : str, peer_id : str):
+        self.game = game_object
+        self.is_host : bool = is_host
         host_arg : str = "true" if self.is_host else "false"
         core_object.log("Hosting :", host_arg.capitalize())
-        self.peer_id : int = "fsaffnaf_2players"
-        self.network_key : str = "tmp_" + self.peer_id + host_arg
+        self.peer_id : str = peer_id
+        self.network_key : str = network_key
         core_object.networker.create_peer(self.peer_id, host_arg, self.network_key, debug_level=1)
         for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.bind(event_type, self.network_event_handler)
         self.ui_message : TextSprite = TextSprite(pygame.Vector2(480, 10), "midtop", 0, 
-                        f"Waiting for connection...\nHosting: {host_arg.capitalize()}\nPeer id: {self.peer_id}",
+                        f"Waiting for connection...\nHosting: {host_arg.capitalize()}\nRoom code: {self.peer_id.removeprefix(NetworkWaitingGameState.PREFIX)}",
                         "waiting_message", text_settings=(self.game.font_40, "White", False),
                         text_stroke_settings=("Black", 2), colorkey=(0, 255, 0))
         core_object.main_ui.add(self.ui_message)
@@ -164,6 +239,7 @@ class NetworkWaitingGameState(GameState):
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.unbind(event_type, self.network_event_handler)
         core_object.main_ui.remove(self.ui_message)
+        core_object.networker.send_network_message("hello", self.network_key)
         self.game.state = PhysicsNetworkedTestGameState(self.game, self.network_key, self.peer_id, self.is_host)
     
     def cleanup(self):
@@ -175,8 +251,8 @@ class NetworkWaitingGameState(GameState):
     
     def network_event_handler(self, event : pygame.Event):
         if event.type == core_object.networker.NETWORK_RECEIVE_EVENT:
-            #self.game.alert_player(f"Received data {event.data}")
-            #core_object.log(f"pygame : Received data {event.data}")
+            self.game.alert_player(f"Received data {event.data}")
+            core_object.log(f"pygame : Received data {event.data}")
             if event.data == "hello":
                 self.transition_to_play()
         elif event.type == core_object.networker.NETWORK_ERROR_EVENT:
@@ -192,8 +268,12 @@ class NetworkWaitingGameState(GameState):
             self.game.alert_player("Network connected")
             core_object.log("pygame : Network connected")
             if not self.is_host:
-                core_object.networker.send_network_message("hello", self.network_key)
                 self.transition_to_play()
+        
+    def handle_key_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                core_object.end_game()
 
 class Network2PlayerTestGameState(NormalGameState):
     def __init__(self, game_object : 'Game', network_key : str, peer_id : str, is_host : bool):
@@ -416,11 +496,22 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             if len(args) != 1:
                 return
             self.client.receive_input(args[0])
-    
+        elif message.startswith("SHOT_ACTION"):
+            parts : list[str] = message.split("|")
+            if len(parts) != 2:
+                return
+            args : list[str] = parts[1].split(";")
+            if len(args) != 1:
+                return
+            before_angle = self.client.angle
+            self.client.angle = float(args[0])
+            self.client.apply_propulsion()
+            self.client.angle = before_angle
+
     def parse_and_react_as_client(self, message : str):
         if message.startswith("VICTORY"):
             self.switch_to_gameover("You win!" if message.endswith("CLIENT") else "You lose!")
-        if message.startswith("SYNC:HOST") or message.startswith("SYNC:CLIENT"):
+        elif message.startswith("SYNC:HOST") or message.startswith("SYNC:CLIENT"):
             parts : list[str] = message.split("|")
             if len(parts) != 2:
                 return
@@ -431,7 +522,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
                 self.host.sync_info((float(args[0]), float(args[1])), (float(args[2]), float(args[3])), float(args[4]))
             elif "CLIENT" in message:
                 self.client.sync_info((float(args[0]), float(args[1])), (float(args[2]), float(args[3])), float(args[4]))
-        if message.startswith("SYNC:DAMAGE"):
+        elif message.startswith("SYNC:DAMAGE"):
             parts : list[str] = message.split("|")
             if len(parts) != 2:
                 return
@@ -439,7 +530,20 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             if len(args) != 2:
                 return
             self.host.damage_taken = float(args[0])
+            self.host.damage_taken_uisprite.text = f"{self.host.damage_taken:.0f}%"
             self.client.damage_taken = float(args[1])
+            self.client.damage_taken_uisprite.text = f"{self.client.damage_taken:.0f}%"
+        elif message.startswith("SHOT_ACTION"):
+            parts : list[str] = message.split("|")
+            if len(parts) != 2:
+                return
+            args : list[str] = parts[1].split(";")
+            if len(args) != 1:
+                return
+            before_angle = self.host.angle
+            self.host.angle = float(args[0])
+            self.host.apply_propulsion()
+            self.host.angle = before_angle   
 
     def switch_to_gameover(self, message : str):
         src.sprites.physics_object.remove_connections()
@@ -479,7 +583,10 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             core_object.log("pygame : Network connected")
     
     def handle_key_event(self, event : pygame.Event):
-        pass
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_RETURN, pygame.K_l, pygame.K_SPACE):
+                shot_angle : float = self.host.sim_body.angle if self.is_host else self.client.sim_body.angle
+                core_object.networker.send_network_message(f"SHOT_ACTION|{shot_angle}", self.network_key)
 
     def pause(self): # disable pausing/unpausing
         pass
@@ -542,6 +649,12 @@ def initialise_game(game_object : 'Game', event : pygame.Event):
             EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.RIGHT_SIDE
             PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.LEFT_SIDE
     if event.mode == "net_test":
-        game_object.state = NetworkWaitingGameState(game_object)
+        if event.hosting:
+            host_arg : str = "true"
+            room_code = NetworkWaitingGameState.generate_roomcode()
+            network_key : str = "tmp_" + room_code + host_arg
+            game_object.state = NetworkWaitingGameState(game_object, True, network_key, NetworkWaitingGameState.PREFIX + room_code)
+        else:
+            game_object.state = NetworkEnterCodeGameState(game_object)
     else:
         game_object.state = game_object.STATES.PhysicsTestGameState(game_object)

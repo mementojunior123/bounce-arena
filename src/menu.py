@@ -80,38 +80,15 @@ class Menu(BaseMenu):
         BaseUiElements.new_button('BlueButton', 'Online', 1, 'bottomright', (wx - 15, window_size[1] - 15), (0.5, 1.4), 
         {'name' : 'online_button'}, (Menu.font_40, 'Black', False))], #stage 1
 
-        [BaseUiElements.new_button('BlueButton', 'Prev', 1, 'bottomleft', (20, window_size[1] - 25), (0.4, 1.0), 
-        {'name' : 'prev_button'}, (Menu.font_40, 'Black', False)),
-        BaseUiElements.new_button('BlueButton', 'Next', 2, 'bottomright', (wx - 20, window_size[1] - 25), (0.4, 1.0), 
-        {'name' : 'next_button'}, (Menu.font_40, 'Black', False)),
+        [BaseUiElements.new_button('BlueButton', 'Host', 1, 'bottomleft', (200, window_size[1] - 25), (0.4, 1.0), 
+        {'name' : 'host_button'}, (Menu.font_40, 'Black', False)),
+        BaseUiElements.new_button('BlueButton', 'Join', 2, 'bottomright', (wx - 200, window_size[1] - 25), (0.4, 1.0), 
+        {'name' : 'join_button'}, (Menu.font_40, 'Black', False)),
         BaseUiElements.new_button('BlueButton', 'Back', 3, 'topleft', (15, 15), (0.4, 1.0), 
         {'name' : 'back_button'}, (Menu.font_40, 'Black', False)),]
         ]
         self.bg_color = (94, 129, 162)
         self.add_connections()   
-
-    def enter_stage2(self):
-        self.stage = 2
-        sep : int = 4
-        self.stage_data[2]['current_page'] = 0
-        self.stage_data[2]['max_pages'] = ceil(len(test_list) / sep)
-        self.stages[2].append(TestUiGroup.new_group(0))
-    
-    def change_page_stage2(self, new_page : int):
-        self.stage_data[2]['current_page'] = new_page
-        self.find_and_replace(TestUiGroup.new_group(new_page), 2, name='TestGroup')
-    
-    def increment_page_stage2(self):
-        new_page : int = (self.stage_data[2]['current_page'] + 1) % self.stage_data[2]['max_pages']
-        self.change_page_stage2(new_page)
-
-    def decrement_page_stage2(self):
-        new_page : int = (self.stage_data[2]['current_page'] - 1) % self.stage_data[2]['max_pages']
-        self.change_page_stage2(new_page)
-    
-    def exit_stage2(self):
-        self.stage_data[2].clear()
-        self.remove_sprite(2, name='TestGroup')
     
     def update(self, delta : float):
         """
@@ -135,20 +112,21 @@ class Menu(BaseMenu):
         name : str = event.name
         trigger_type : str = event.trigger_type
         stage_data = self.stage_data[self.stage]
+        random.seed(core_object.global_timer.get_time())
         match self.stage:
             case 1:
                 if name == "play_button":
                     pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'test', "playcount" : 1}))
                 elif name == "2players":
                     pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'test', "playcount" : 2}))
-                if name == 'online_button':
-                    pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'net_test'}))
+                elif name == 'online_button':
+                    self.goto_stage(2)
             case 2:
                 if name == 'back_button':
                     self.goto_stage(1)
-                elif name == 'prev_button':
-                    self.decrement_page_stage2()
-                elif name == 'next_button':
-                    self.increment_page_stage2()
+                elif name == "host_button":
+                    pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'net_test', 'hosting' : True}))
+                elif name == "join_button":
+                    pygame.event.post(pygame.Event(core_object.START_GAME, {'mode' : 'net_test', 'hosting' : False}))
 
 # TODO : Document the menu API (general workflow, interactivity, etc.)

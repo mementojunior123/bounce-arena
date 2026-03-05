@@ -203,11 +203,10 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         return element
 
     def sync_info(self, position : tuple[float, float], velocity : tuple[float, float], angle : float,
-                  margins : tuple[float, float, float] = (8, 4, 0.09)):
-        if (self.position - position).magnitude() > margins[0]:
+                  margins : tuple[float, float, float] = (8, 4, 0.03)):
+        if (self.position - position).magnitude() > margins[0] or (self.sim_body.velocity - velocity).length > margins[1]:
             self.sim_body.position = pymunk.Vec2d(position[0], position[1])
             self.position = pygame.Vector2(self.sim_body.position)
-        if (self.sim_body.velocity - velocity).length > margins[1]:
             self.sim_body.velocity = pymunk.Vec2d(velocity[0], velocity[1])
         if abs(self.sim_body.angle - angle) > margins[2]:
             self.sim_body.angle = angle
@@ -228,9 +227,9 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if input_this_frame[1] == "1":
             move_vector += pygame.Vector2(1, 0)
         if input_this_frame[2] == "1":
-            move_vector += pygame.Vector2(0, 2.5)
+            move_vector += pygame.Vector2(0, 1.5)
         if input_this_frame[3] == "1":
-            move_vector += pygame.Vector2(0, -2.5)
+            move_vector += pygame.Vector2(0, -1.5)
         angular_velocity = self.current_direction * 0.5
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
@@ -390,9 +389,9 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             if (left_side_usable and keyboard_map[pygame.K_d]) or (keyboard_map[pygame.K_RIGHT] and right_side_usable):
                 move_vector += pygame.Vector2(1, 0)
             if (left_side_usable and keyboard_map[pygame.K_s]) or (keyboard_map[pygame.K_DOWN] and right_side_usable):
-                move_vector += pygame.Vector2(0, 2.5)
+                move_vector += pygame.Vector2(0, 1.5)
             if (left_side_usable and keyboard_map[pygame.K_w]) or (keyboard_map[pygame.K_UP] and right_side_usable):
-                move_vector += pygame.Vector2(0, -2.5)
+                move_vector += pygame.Vector2(0, -1.5)
         angular_velocity = self.current_direction * 0.5
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
@@ -535,11 +534,10 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         return element
 
     def sync_info(self, position : tuple[float, float], velocity : tuple[float, float], angle : float,
-                  margins : tuple[float, float, float] = (8, 4, 0.09)):
-        if (self.position - position).magnitude() > margins[0]:
+                  margins : tuple[float, float, float] = (8, 4, 0.03)):
+        if (self.position - position).magnitude() > margins[0] or (self.sim_body.velocity - velocity).length > margins[1]:
             self.sim_body.position = pymunk.Vec2d(position[0], position[1])
             self.position = pygame.Vector2(self.sim_body.position)
-        if (self.sim_body.velocity - velocity).length > margins[1]:
             self.sim_body.velocity = pymunk.Vec2d(velocity[0], velocity[1])
         if abs(self.sim_body.angle - angle) > margins[2]:
             self.sim_body.angle = angle
@@ -560,9 +558,9 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
         if input_this_frame[1] == "1":
             move_vector += pygame.Vector2(1, 0)
         if input_this_frame[2] == "1":
-            move_vector += pygame.Vector2(0, 2.5)
+            move_vector += pygame.Vector2(0, 1.5)
         if input_this_frame[3] == "1":
-            move_vector += pygame.Vector2(0, -2.5)
+            move_vector += pygame.Vector2(0, -1.5)
         angular_velocity = self.current_direction * 0.5
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta
@@ -711,9 +709,9 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             if (left_side_usable and keyboard_map[pygame.K_d]) or (keyboard_map[pygame.K_RIGHT] and right_side_usable):
                 move_vector += pygame.Vector2(1, 0)
             if (left_side_usable and keyboard_map[pygame.K_s]) or (keyboard_map[pygame.K_DOWN] and right_side_usable):
-                move_vector += pygame.Vector2(0, 2.5)
+                move_vector += pygame.Vector2(0, 1.5)
             if (left_side_usable and keyboard_map[pygame.K_w]) or (keyboard_map[pygame.K_UP] and right_side_usable):
-                move_vector += pygame.Vector2(0, -2.5)
+                move_vector += pygame.Vector2(0, -1.5)
         angular_velocity = self.current_direction * 0.5
         if move_vector:
             self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position) # Force is applied over time in the sim step, so no need to muliply by delta

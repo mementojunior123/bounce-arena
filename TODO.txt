@@ -9,5 +9,5 @@
 
 
 ------Networking------
--Add better client side physics
+-Add better client side physics after shooting
 -Add a roomcode system

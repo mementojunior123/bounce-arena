@@ -426,7 +426,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.apply_propulsion()
             self.shot_timer.set_duration(-1)
     
-    def apply_propulsion(self):
+    def apply_propulsion(self, shot_direction : pymunk.Vec2d|None = None):
         force : float = 1000
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
         self.sim_body.apply_impulse_at_world_point(tuple(direction * force), self.sim_body.position) # An impulse is instatenous, so no need to multiply it by delta
@@ -434,7 +434,8 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -19))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(120), self.sim_body.space, False)
+        shot_direction = shot_direction or (shot_end - shot_origin).normalized()
+        src.level_geometry.make_projectile(shot_origin, shot_direction * 120, self.sim_body.space, False)
         self.current_direction *= -1
 
     def post_sim(self, delta : float):
@@ -722,7 +723,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.sim_body.angular_velocity = 0
 
     
-    def apply_propulsion(self):
+    def apply_propulsion(self, shot_direction : pymunk.Vec2d|None = None):
         self.current_direction *= -1
         force : float = 2500 * 0.65 if self.CONTROL_SCHEME == ControlSchemes.AI else 1000
         direction : pygame.Vector2 = pygame.Vector2(0, 1).rotate(self.angle)
@@ -730,7 +731,8 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         shot_origin : pymunk.Vec2d = self.sim_body.local_to_world((0, -19))
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
-        src.level_geometry.make_projectile(shot_origin, (shot_end - shot_origin).scale_to_length(120), self.sim_body.space, True)
+        shot_direction = shot_direction or (shot_end - shot_origin).normalized()
+        src.level_geometry.make_projectile(shot_origin, shot_direction * 120, self.sim_body.space, True)
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)

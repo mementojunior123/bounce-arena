@@ -503,10 +503,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             args : list[str] = parts[1].split(";")
             if len(args) != 1:
                 return
-            before_angle = self.client.angle
-            self.client.angle = float(args[0])
-            self.client.apply_propulsion()
-            self.client.angle = before_angle
+            self.client.apply_propulsion(pymunk.Vec2d(0, -1).rotated(float(args[0])))
 
     def parse_and_react_as_client(self, message : str):
         if message.startswith("VICTORY"):
@@ -540,10 +537,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             args : list[str] = parts[1].split(";")
             if len(args) != 1:
                 return
-            before_angle = self.host.angle
-            self.host.angle = float(args[0])
-            self.host.apply_propulsion()
-            self.host.angle = before_angle   
+            self.host.apply_propulsion(pymunk.Vec2d(0, -1).rotated(float(args[0])))   
 
     def switch_to_gameover(self, message : str):
         src.sprites.physics_object.remove_connections()

@@ -34,3 +34,6 @@ Version T08 (05-03-2026, 16:30):
     -Fully implemented the 2 player mode
     -Added a room code system
     -Made a few fixes and improvements to networking and physics
+
+Version T09 (05-03-2026, 16:51):
+    -Improved projectile sync

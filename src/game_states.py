@@ -70,13 +70,13 @@ class PhysicsTestGameState(NormalGameState):
         self.simulation_space.gravity = (0, 7.5)
 
         player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
-                                           "collision_type" : CollisionTypes.PLAYER_BALL, "collision_category" : [CollisionTypes.PLAYER_BALL], 
-                                           "collision_mask" : [CollisionTypes.ENEMY_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.ENEMY_PROJECTILE]}
+                                           "collision_type" : CollisionTypes.TEAM1_BALL, "collision_category" : [CollisionTypes.TEAM1_BALL], 
+                                           "collision_mask" : [CollisionTypes.TEAM2_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.TEAM2_PROJECTILE]}
         self.player : PlayerPhysicsObject = src.level_geometry.make_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
 
         enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9,
-                                          "collision_type" : CollisionTypes.ENEMY_BALL, "collision_category" : [CollisionTypes.ENEMY_BALL], 
-                                          "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.PLAYER_PROJECTILE]}
+                                          "collision_type" : CollisionTypes.TEAM2_BALL, "collision_category" : [CollisionTypes.TEAM2_BALL], 
+                                          "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.TEAM1_PROJECTILE]}
         self.enemy_ball : EnemyPhysicsObject = src.level_geometry.make_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)
 
         for level_geomerty in src.level_geometry.test_level_geometry:
@@ -388,13 +388,13 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         self.simulation_space.gravity = (0, 7.5)
 
         player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
-                                           "collision_type" : CollisionTypes.PLAYER_BALL, "collision_category" : [CollisionTypes.PLAYER_BALL], 
-                                           "collision_mask" : [CollisionTypes.ENEMY_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.ENEMY_PROJECTILE]}
+                                           "collision_type" : CollisionTypes.TEAM1_BALL, "collision_category" : [CollisionTypes.TEAM1_BALL], 
+                                           "collision_mask" : [CollisionTypes.TEAM2_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.TEAM2_PROJECTILE]}
         self.host : PlayerPhysicsObject = src.level_geometry.make_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
 
         enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9,
-                                          "collision_type" : CollisionTypes.ENEMY_BALL, "collision_category" : [CollisionTypes.ENEMY_BALL], 
-                                          "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.PLAYER_PROJECTILE]}
+                                          "collision_type" : CollisionTypes.TEAM2_BALL, "collision_category" : [CollisionTypes.TEAM2_BALL], 
+                                          "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.TEAM1_PROJECTILE]}
         self.client : EnemyPhysicsObject = src.level_geometry.make_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)
 
         for level_geomerty in src.level_geometry.test_level_geometry:

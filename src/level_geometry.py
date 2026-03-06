@@ -1,9 +1,9 @@
 """
-Enemy ball : 1
-Player ball : 2
+Team 1 ball : 1
+Team 2 ball : 2
 Static geometry : 3
-Enemy projectile : 4
-Player projectile : 5
+Team 1 projectile : 4
+Team 2 projectile : 5
 """
 
 import pygame
@@ -203,28 +203,28 @@ def make_projectile(spawn_pos : list[int, int], velocity : list[int, int], sim_s
 
 test_level_geometry : list[LevelGeometry] = [
     {"object_type" : "static_rect", "pos" : [480, 500], "width" : 960, "height" : 20, "color" : "Black", 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 
     {"object_type" : "static_rect", "pos" : [10, 450], "width" : 20, "height" : 100, "color" : "Black", 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 
     {"object_type" : "static_rect", "pos" : [950, 450], "width" : 20, "height" : 100, "color" : "Black", 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 
     {"object_type" : "static_rect", "pos" : [10, 250], "width" : 20, "height" : 100, "color" : "Black", 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 
     {"object_type" : "static_rect", "pos" : [950, 250], "width" : 20, "height" : 100, "color" : "Black", 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 
     {"object_type" : "static_rect", "pos" : [10, 50], "width" : 20, "height" : 100, "color" : "Black", 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 
     {"object_type" : "static_rect", "pos" : [950, 50], "width" : 20, "height" : 100, "color" : "Black", 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 
     {"object_type" : "static_poly", "pos" : [480, 270], "color" : "Black", "points" : [(-50, 50), (50, 50), (50, -50)], 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
     {"object_type" : "static_poly", "pos" : [200, 270], "color" : "Black", "points" : [(-50, 0), (0, 50), (100, -50), (50, -100)], "bounciness" : 2, 
-     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL]},
+     "collision_category" : [CollisionTypes.STATIC_GEOMETRY], "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL]},
 ]

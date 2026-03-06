@@ -181,19 +181,19 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.registered_inputs = []
 
         if pymunk.version[0] == "6":
-            handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL)
+            handler = element.sim_body.space.add_collision_handler(CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL)
             handler._data = {}
             handler.begin = element.on_collision_with_enemy
             handler.separate = element.post_collision_with_enemy
 
-            handler = element.sim_body.space.add_collision_handler(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_PROJECTILE)
+            handler = element.sim_body.space.add_collision_handler(CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_PROJECTILE)
             handler._data = {}
             handler.begin = element.on_collision_with_proj_enemy
             handler.separate = element.post_collision_with_proj_enemy
         else:
-            element.sim_body.space.on_collision(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_BALL, 
+            element.sim_body.space.on_collision(CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_BALL, 
                                                 element.on_collision_with_enemy, separate=element.post_collision_with_enemy, data={})
-            element.sim_body.space.on_collision(CollisionTypes.PLAYER_BALL, CollisionTypes.ENEMY_PROJECTILE, 
+            element.sim_body.space.on_collision(CollisionTypes.TEAM1_BALL, CollisionTypes.TEAM2_PROJECTILE, 
                                                 element.on_collision_with_proj_enemy, separate=element.post_collision_with_proj_enemy, data={})
             
         element.damage_taken_uisprite = TextSprite(pygame.Vector2(700, 10), "topright", 0, "0%", 
@@ -418,7 +418,7 @@ class PlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
                         continue
                 elif not hit_to_center.dot(shot_direction) > 0.60:
                     continue
-                if hit.shape.collision_type == CollisionTypes.ENEMY_BALL:
+                if hit.shape.collision_type == CollisionTypes.TEAM2_BALL:
                     self.apply_propulsion()
                     self.shot_timer.set_duration(random.uniform(2, 3))
                     break
@@ -525,7 +525,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             element.sim_body.space.on_collision(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_BALL, 
                                                 element.on_collision_with_opposant, separate=element.post_collision_with_opposant, data={})
             """
-            element.sim_body.space.on_collision(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_PROJECTILE, 
+            element.sim_body.space.on_collision(CollisionTypes.TEAM2_BALL, CollisionTypes.TEAM1_PROJECTILE, 
                                                 element.on_collision_with_proj_opposant, separate=element.post_collision_with_proj_opposant, data={})
         element.damage_taken_uisprite = TextSprite(pygame.Vector2(950, 10), "topright", 0, "0%", 
                                                    text_settings=(core_object.game.font_40, "Green", False), text_stroke_settings=("Black", 2))
@@ -757,7 +757,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
                         continue
                 elif not hit_to_center.dot(shot_direction) > 0.60:
                     continue
-                if hit.shape.collision_type == CollisionTypes.PLAYER_BALL:
+                if hit.shape.collision_type == CollisionTypes.TEAM1_BALL:
                     self.apply_propulsion()
                     self.shot_timer.set_duration(random.uniform(2, 3))
                     break

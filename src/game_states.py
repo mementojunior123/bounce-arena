@@ -64,20 +64,37 @@ class NormalGameState(GameState):
 
 class PhysicsTestGameState(NormalGameState):
     SIMULATION_STEP_COUNT : int = 5
-    def __init__(self, game_object : 'Game'):
+
+    def player_team1_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
+        if self.player_count == 1:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+        else:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.LEFT_SIDE, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+    
+    def player_team2_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
+        if self.player_count == 1:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.AI, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
+        else:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.RIGHT_SIDE, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
+    
+
+    def __init__(self, game_object : 'Game', player_count : int = 1):
         self.game = game_object
         self.simulation_space : pymunk.Space = pymunk.Space()
         self.simulation_space.gravity = (0, 7.5)
+        self.main_collision_handler : CentralCollisionHandler = CentralCollisionHandler(self.simulation_space)
+        self.player_count : int = player_count
 
         player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
                                            "collision_type" : CollisionTypes.TEAM1_BALL, "collision_category" : [CollisionTypes.TEAM1_BALL], 
                                            "collision_mask" : [CollisionTypes.TEAM2_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.TEAM2_PROJECTILE]}
-        self.player : PlayerPhysicsObject = src.level_geometry.make_level_geometry_object(player_ball_geo, self.simulation_space, PlayerPhysicsObject.spawn)
+
+        self.player : PlayerPhysicsObject = src.level_geometry.make_level_geometry_object(player_ball_geo, self.simulation_space, self.player_team1_constructor)
 
         enemy_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [600, 60], "color" : "Green", "colorkey" : (255, 255, 0), "radius" : 20, "bounciness" : 0.9,
                                           "collision_type" : CollisionTypes.TEAM2_BALL, "collision_category" : [CollisionTypes.TEAM2_BALL], 
                                           "collision_mask" : [CollisionTypes.TEAM1_BALL, CollisionTypes.STATIC_GEOMETRY, CollisionTypes.TEAM1_PROJECTILE]}
-        self.enemy_ball : EnemyPhysicsObject = src.level_geometry.make_level_geometry_object(enemy_ball_geo, self.simulation_space, EnemyPhysicsObject.spawn)
+        self.enemy_ball : EnemyPhysicsObject = src.level_geometry.make_level_geometry_object(enemy_ball_geo, self.simulation_space, self.player_team2_constructor)
 
         for level_geomerty in src.level_geometry.test_level_geometry:
             src.level_geometry.make_level_geometry_object(level_geomerty, self.simulation_space)
@@ -373,6 +390,19 @@ class Network2PlayerTestGameState(NormalGameState):
         pass
 
 class PhysicsNetworkedTestGameState(NormalGameState):
+
+    def player_team1_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
+        if self.is_host:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+        else:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NONE, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+    
+    def player_team2_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
+        if self.is_host:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NONE, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
+        else:
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
+    
     SIMULATION_STEP_COUNT : int = 5
     def __init__(self, game_object : 'Game', network_key : str, peer_id : str, is_host : bool):
         PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES if is_host else ControlSchemes.NONE
@@ -386,6 +416,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         self.game = game_object
         self.simulation_space : pymunk.Space = pymunk.Space()
         self.simulation_space.gravity = (0, 7.5)
+        self.main_collision_handler : CentralCollisionHandler = CentralCollisionHandler(self.simulation_space)
 
         player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
                                            "collision_type" : CollisionTypes.TEAM1_BALL, "collision_category" : [CollisionTypes.TEAM1_BALL], 
@@ -615,13 +646,18 @@ def runtime_imports():
     import src.sprites.test_player
     from src.sprites.test_player import TestPlayer, NetworkTestPlayer, NetworkSyncTestPlayer
 
-    global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, ControlSchemes
+    global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, ControlSchemes, GenericPlayerPhysicsObject, Teams
     import src.sprites.physics_object
-    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, ControlSchemes
+    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, GenericPlayerPhysicsObject
+    from src.sprites.physics_object import ControlSchemes, Teams
 
     global LevelGeometry
     import src.level_geometry
     from src.level_geometry import LevelGeometry
+
+    global CentralCollisionHandler
+    import src.central_collision_handler
+    from src.central_collision_handler import CentralCollisionHandler
 
     global CollisionTypes
     from src.collision_type_constants import CollisionTypes
@@ -639,10 +675,13 @@ def initialise_game(game_object : 'Game', event : pygame.Event):
     EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.AI
     PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES
     if event.mode == "test":
+        player_count : int = 1
         if event.playcount == 2:
             EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.RIGHT_SIDE
             PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.LEFT_SIDE
-    if event.mode == "net_test":
+            player_count = 2
+        game_object.state = PhysicsTestGameState(game_object, player_count)
+    elif event.mode == "net_test":
         if event.hosting:
             host_arg : str = "true"
             room_code = NetworkWaitingGameState.generate_roomcode()
@@ -650,5 +689,3 @@ def initialise_game(game_object : 'Game', event : pygame.Event):
             game_object.state = NetworkWaitingGameState(game_object, True, network_key, NetworkWaitingGameState.PREFIX + room_code)
         else:
             game_object.state = NetworkEnterCodeGameState(game_object)
-    else:
-        game_object.state = game_object.STATES.PhysicsTestGameState(game_object)

@@ -189,12 +189,12 @@ def create_static_rect(w : int, h : int, pos : pygame.Vector2, color = "Black", 
 
     return new_body, [new_shape], new_surf
 
-def make_projectile(spawn_pos : list[int, int], velocity : list[int, int], sim_space : pymunk.Space, is_enemy : bool = False) -> ProjectilePhysicsObject:
+def make_projectile(spawn_pos : list[int, int], velocity : list[int, int], sim_space : pymunk.Space, is_team2 : bool = False) -> ProjectilePhysicsObject:
     body, shapes, surf = create_dynamic_ball(10, spawn_pos, tracer=False)
     for shape in shapes:
-        shape.collision_type = value_to_bitmask(4 if is_enemy else 5)
-        collision_category = value_to_bitmask([4] if is_enemy else [5])
-        collision_mask = value_to_bitmask([2] if is_enemy else [1])
+        shape.collision_type = value_to_bitmask(CollisionTypes.TEAM2_PROJECTILE if is_team2 else CollisionTypes.TEAM1_PROJECTILE)
+        collision_category = value_to_bitmask([CollisionTypes.TEAM2_PROJECTILE] if is_team2 else [CollisionTypes.TEAM1_PROJECTILE])
+        collision_mask = value_to_bitmask([CollisionTypes.TEAM1_BALL] if is_team2 else [CollisionTypes.TEAM2_BALL])
         shape.filter = pymunk.ShapeFilter(categories=collision_category, mask=collision_mask)
     body.velocity = velocity
     body.velocity_func = ignore_gravity

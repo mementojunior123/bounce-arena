@@ -516,7 +516,7 @@ class EnemyPhysicsObject(BasePhysicsObject, sprite_count = 5):
             handler.begin = element.on_collision_with_opposant
             handler.separate = element.post_collision_with_opposant
             """
-            handler = element.sim_body.space.add_collision_handler(CollisionTypes.ENEMY_BALL, CollisionTypes.PLAYER_PROJECTILE)
+            handler = element.sim_body.space.add_collision_handler(CollisionTypes.TEAM2_BALL, CollisionTypes.TEAM1_PROJECTILE)
             handler._data = {}
             handler.begin = element.on_collision_with_proj_opposant
             handler.separate = element.post_collision_with_proj_opposant

@@ -99,7 +99,7 @@ class PhysicsTestGameState(NormalGameState):
         for level_geomerty in src.level_geometry.test_level_geometry:
             src.level_geometry.make_level_geometry_object(level_geomerty, self.simulation_space)
 
-        src.sprites.physics_object.make_connections()
+        src.sprites.player.make_connections()
 
         self.steps_taken : int = 0
 
@@ -138,7 +138,7 @@ class PhysicsTestGameState(NormalGameState):
         self.game.state = GameOverState(self.game, self, message)
     
     def cleanup(self):
-        src.sprites.physics_object.remove_connections()
+        src.sprites.player.remove_connections()
 
 class GameOverState(GameState):
     def __init__(self, game_object : 'Game', previous : GameState, message : str = "You lose!"):
@@ -427,7 +427,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         for level_geomerty in src.level_geometry.test_level_geometry:
             src.level_geometry.make_level_geometry_object(level_geomerty, self.simulation_space)
 
-        src.sprites.physics_object.make_connections()
+        src.sprites.player.make_connections()
 
         for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
@@ -567,7 +567,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             self.host.apply_propulsion(pymunk.Vec2d(0, -1).rotated(float(args[0])))   
 
     def switch_to_gameover(self, message : str):
-        src.sprites.physics_object.remove_connections()
+        src.sprites.player.remove_connections()
         for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.unbind(event_type, self.network_event_handler)
@@ -578,7 +578,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         core_object.task_scheduler.schedule_task(3, destroy_peer)
     
     def cleanup(self):
-        src.sprites.physics_object.remove_connections()
+        src.sprites.player.remove_connections()
         for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.unbind(event_type, self.network_event_handler)
@@ -642,10 +642,13 @@ def runtime_imports():
     import src.sprites.test_player
     from src.sprites.test_player import TestPlayer, NetworkTestPlayer, NetworkSyncTestPlayer
 
-    global BasicPhysicsObject, BasePhysicsObject, ControlSchemes, GenericPlayerPhysicsObject, Teams
+    global BasicPhysicsObject, BasePhysicsObject
     import src.sprites.physics_object
-    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, GenericPlayerPhysicsObject
-    from src.sprites.physics_object import ControlSchemes, Teams
+    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject
+
+    global ControlSchemes, GenericPlayerPhysicsObject, Teams
+    import src.sprites.player
+    from src.sprites.player import ControlSchemes, GenericPlayerPhysicsObject, Teams
 
     global LevelGeometry
     import src.level_geometry
@@ -658,7 +661,7 @@ def runtime_imports():
     global CollisionTypes
     from src.collision_type_constants import CollisionTypes
 
-    src.sprites.physics_object.runtime_imports()
+    src.sprites.player.runtime_imports()
     
 
 class GameStates:

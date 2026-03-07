@@ -17,7 +17,8 @@ from framework.utils.helpers import ColorType
 import pymunk
 
 from typing import TypedDict, Literal, Callable, TypeAlias, NotRequired
-from src.sprites.physics_object import BasePhysicsObject, ProjectilePhysicsObject, BasicPhysicsObject
+from src.sprites.projectiles import ProjectilePhysicsObject
+from src.sprites.physics_object import BasePhysicsObject, BasicPhysicsObject
 from math import ceil
 from src.collision_type_constants import CollisionTypes
 

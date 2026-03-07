@@ -404,8 +404,6 @@ class PhysicsNetworkedTestGameState(NormalGameState):
     
     SIMULATION_STEP_COUNT : int = 5
     def __init__(self, game_object : 'Game', network_key : str, peer_id : str, is_host : bool):
-        PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES if is_host else ControlSchemes.NONE
-        EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES if not is_host else ControlSchemes.NONE
         self.recent_messages : list[str] = []
         self.ping_timer : Timer = Timer(1, core_object.game.game_timer.get_time)
         self.is_host : bool = is_host
@@ -645,9 +643,9 @@ def runtime_imports():
     import src.sprites.test_player
     from src.sprites.test_player import TestPlayer, NetworkTestPlayer, NetworkSyncTestPlayer
 
-    global BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, ControlSchemes, GenericPlayerPhysicsObject, Teams
+    global BasicPhysicsObject, BasePhysicsObject, ControlSchemes, GenericPlayerPhysicsObject, Teams
     import src.sprites.physics_object
-    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, PlayerPhysicsObject, EnemyPhysicsObject, GenericPlayerPhysicsObject
+    from src.sprites.physics_object import BasicPhysicsObject, BasePhysicsObject, GenericPlayerPhysicsObject
     from src.sprites.physics_object import ControlSchemes, Teams
 
     global LevelGeometry
@@ -671,13 +669,9 @@ class GameStates:
 
 
 def initialise_game(game_object : 'Game', event : pygame.Event):
-    EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.AI
-    PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.BOTH_SIDES
     if event.mode == "test":
         player_count : int = 1
         if event.playcount == 2:
-            EnemyPhysicsObject.CONTROL_SCHEME = ControlSchemes.RIGHT_SIDE
-            PlayerPhysicsObject.CONTROL_SCHEME = ControlSchemes.LEFT_SIDE
             player_count = 2
         game_object.state = PhysicsTestGameState(game_object, player_count)
     elif event.mode == "net_test":

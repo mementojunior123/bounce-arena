@@ -1,8 +1,5 @@
 ------Code organisation------
--REDUCE CODE DUPLICATION
--Improve the damage system:
-    Add a way to reduce code duplication
-    Improve collision handler responsability delegation
+...
 
 ------Content------
 ...
@@ -10,4 +7,3 @@
 
 ------Networking------
 -Add better client side physics after shooting
--Add a roomcode system

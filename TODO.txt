@@ -7,3 +7,4 @@
 
 ------Networking------
 -Add better client side physics after shooting
+-Investigate the effects of the input buffer

@@ -37,3 +37,7 @@ Version T08 (05-03-2026, 16:30):
 
 Version T09 (05-03-2026, 16:51):
     -Improved projectile sync
+
+Version T10 (06-03-2026, 19:24):
+    -Made a refactor in the backend to reduce code duplication and improve collision handling
+    -Experimented with input buffer lentgh to improve sync while networking

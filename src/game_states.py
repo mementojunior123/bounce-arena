@@ -194,9 +194,8 @@ class NetworkEnterCodeGameState(GameState):
     
     def handle_textinput_event(self, event : pygame.Event):
         if event.type == pygame.TEXTEDITING:
-            print("TEXTEDITING:", event.__dict__)
+            pass
         elif event.type == pygame.TEXTINPUT:
-            print("TEXTINPUT:", event.__dict__)
             self.text_entry.text += event.text.lower()
             self.text_entry.visible = True
     

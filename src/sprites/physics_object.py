@@ -16,6 +16,11 @@ from typing import Any, Self, Union
 from src.collision_type_constants import CollisionTypes
 from enum import IntEnum
 
+def print_if_not_web(*args, **kwargs):
+    if core_object.is_web():
+        return
+    print(*args, **kwargs)
+
 class ControlSchemes(IntEnum):
     NONE = 0
     AI = 1
@@ -343,7 +348,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
                         else (arbiter.shapes[1], arbiter.shapes[0]))
         opposant_sprite : GenericPlayerPhysicsObject = GenericPlayerPhysicsObject.get_instance_by_shape(opposant_ball)
         if not isinstance(opposant_sprite, GenericPlayerPhysicsObject):
-            print("error")
+            print_if_not_web("error")
             return True
         data['opposant_sprite'] = opposant_sprite
         
@@ -353,13 +358,13 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         projected_damage_dealt, log_opposant = opposant_sprite.calculate_damage_from_opposant(arbiter, space)
 
         if projected_damage_taken < 5:
-            print(log_this)
+            print_if_not_web(log_this)
         elif projected_damage_taken < projected_damage_dealt:
-            print(f"{Teams(self.team).name} player won clash ({projected_damage_dealt:.3f} > {projected_damage_taken:.3f})")
+            print_if_not_web(f"{Teams(self.team).name} player won clash ({projected_damage_dealt:.3f} > {projected_damage_taken:.3f})")
         else:
             self.take_damage(projected_damage_taken)
             opposant_sprite.damage_cooldown_timer.restart()
-            print(log_this)
+            print_if_not_web(log_this)
 
         data['this_speed_pre_solve'] = abs_this_velocity
 
@@ -383,8 +388,8 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         else:
             lift = (data['pre_solve_damage'] - 100) / 5
         this_ball.body.velocity = data['this_speed_pre_solve'] + (this_speed_diff * knockback_mult_this) + pymunk.Vec2d(0, -lift)
-        print(f"{Teams(self.team).name} player speed:", before_this_speed.length, "-->", this_ball.body.velocity.length)
-        print("----")
+        print_if_not_web(f"{Teams(self.team).name} player speed:", before_this_speed.length, "-->", this_ball.body.velocity.length)
+        print_if_not_web("----")
         self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
     
     def on_collision_with_proj_opposant(self, arbiter : pymunk.Arbiter, space : pymunk.Space, data : Any) -> bool:
@@ -410,10 +415,10 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             proj_sprite.destroy_safe()
 
         if damage_taken < 5:
-            print(f"Not enough damage taken (projectile, to {Teams(self.team).name} player):")
+            print_if_not_web(f"Not enough damage taken (projectile, to {Teams(self.team).name} player):")
         else:
             self.take_damage(damage_taken, ignore_cooldown=True, trigger_cooldown=False)
-            print(f"Damage taken (projectile, to {Teams(self.team).name} player):", damage_taken, f"({self.damage_taken})")
+            print_if_not_web(f"Damage taken (projectile, to {Teams(self.team).name} player):", damage_taken, f"({self.damage_taken})")
 
         data['this_speed_pre_solve'] = abs_this_velocity
         return True
@@ -426,8 +431,8 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         this_speed_diff = before_this_speed - data['this_speed_pre_solve']
 
         this_ball.body.velocity = data['this_speed_pre_solve'] + (this_speed_diff * knockback_mult_this)
-        print(f"{Teams(self.team).name} player speed:", before_this_speed.length, "-->", this_ball.body.velocity.length)
-        print("----")
+        print_if_not_web(f"{Teams(self.team).name} player speed:", before_this_speed.length, "-->", this_ball.body.velocity.length)
+        print_if_not_web("----")
         self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
     
     

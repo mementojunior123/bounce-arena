@@ -7,4 +7,5 @@
 
 ------Networking------
 -Add better client side physics after shooting
--Investigate the effects of the input buffer
+-Continue to investigate the effects of the input buffer lentgh
+-Fix future issue with host FPS being higher than client FPS

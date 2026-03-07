@@ -245,7 +245,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.angle = degrees(angle)
     
     def receive_input(self, input_data : str):
-        buffer_len : int = 0
+        buffer_len : int = 2
         if not self.registered_inputs:
             self.registered_inputs.append(input_data)
         elif not buffer_len:
@@ -255,12 +255,13 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             final_index : int = len(self.registered_inputs) - 1
             overload_inputs : list[str] = self.registered_inputs[:final_index - buffer_len + 1]
             tmp = self.registered_inputs[final_index - buffer_len + 1:]
-            self.registered_inputs = [self.combine_inputs_OR(overload_inputs)]
+            self.registered_inputs = [self.combine_inputs_OR(overload_inputs)] if overload_inputs else []
             self.registered_inputs.extend(tmp)
         else:
             self.registered_inputs.append(input_data)
     
     def combine_inputs_OR(self, inputs : list[str]) -> str:
+        if not inputs: return "00000"
         result : str = ""
         input_len = len(inputs[0])
         for i in range(input_len):
@@ -271,6 +272,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         return result
     
     def combine_inputs_AND(self, inputs : list[str]) -> str:
+        if not inputs: return "00000"
         result : str = ""
         input_len = len(inputs[0])
         for i in range(input_len):

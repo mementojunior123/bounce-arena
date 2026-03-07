@@ -41,3 +41,6 @@ Version T09 (05-03-2026, 16:51):
 Version T10 (06-03-2026, 19:24):
     -Made a refactor in the backend to reduce code duplication and improve collision handling
     -Experimented with input buffer lentgh to improve sync while networking
+
+Version T11 (07-03-2026, 12:16):
+    -Removed a few print statements in the web version to hopefully improve performance

@@ -9,3 +9,4 @@
 -Add better client side physics after shooting
 -Continue to investigate the effects of the input buffer lentgh
 -Fix future issue with host FPS being higher than client FPS
+-Fix jankiness issues related to unstable FPS on the host/client

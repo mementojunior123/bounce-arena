@@ -142,8 +142,9 @@ class Core:
     
     def detect_game_over(self, event : pygame.Event):
         if event.type == pygame.KEYDOWN: 
-            if event.key == pygame.K_ESCAPE: 
-                self.end_game(None)
+            if event.key == pygame.K_ESCAPE:
+                pass 
+                #self.end_game(None)
     
     def end_game(self, event : pygame.Event = None):
         self.game.end_game()

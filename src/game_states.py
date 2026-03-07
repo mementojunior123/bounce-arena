@@ -571,11 +571,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.unbind(event_type, self.network_event_handler)
-        self.game.state = GameOverState(self.game, self, message)
-
-        def destroy_peer():
-            core_object.networker.destroy_peer(self.network_key)
-        core_object.task_scheduler.schedule_task(3, destroy_peer)
+        self.game.state = NetworkedGameOverState(self.game, self, message)
     
     def cleanup(self):
         src.sprites.player.remove_connections()
@@ -611,6 +607,148 @@ class PhysicsNetworkedTestGameState(NormalGameState):
 
     def pause(self): # disable pausing/unpausing
         pass
+
+class NetworkedGameOverState(GameState):
+    def __init__(self, game_object : 'Game', previous : PhysicsNetworkedTestGameState, message : str = "You lose!"):
+        self.game = game_object
+        self.prev = previous
+        self.game.alert_player(message)
+        self.timer = Timer(3, self.game.game_timer.get_time)
+    
+    def main_logic(self, delta):
+        if self.timer.isover():
+            self.switch_to_rematch()
+    
+    def switch_to_rematch(self):
+        Sprite.kill_all_sprites()
+        core_object.main_ui.clear_all()
+        self.game.state = NetworkedRematchState(self.game, self.prev)
+    
+    def cleanup(self):
+        self.prev.cleanup()
+
+class NetworkedRematchState(GameState):
+    MAX_REPONSE_TIME : float = 1
+    def __init__(self, game_object : 'Game', previous : PhysicsNetworkedTestGameState):
+        self.game = game_object
+        self.is_host : bool = previous.is_host
+        self.prev = previous
+
+        self.game = game_object
+        self.is_host : bool = self.prev.is_host
+        self.peer_id : str = self.prev.peer_id
+        self.network_key : str = self.prev.network_key
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.bind(event_type, self.network_event_handler)
+
+        window_size = core_object.main_display.get_size()
+        self.ui_message : TextSprite = TextSprite(pygame.Vector2(480, 10), "midtop", 0, 
+                        f"Rematch?", text_settings=(self.game.font_50, "White", False),
+                        text_stroke_settings=("Black", 2), colorkey=(0, 255, 0))
+        self.ready_button : UiSprite = BaseUiElements.new_button('BlueButton', 'Ready', 1, 'midright', 
+                                            (window_size[0] // 2 - 30, window_size[1] // 2), (0.5, 1.4), 
+                                    {'name' : 'ready_button'}, (self.game.font_40, 'Black', False))
+        self.unready_button : UiSprite = BaseUiElements.new_button('BlueButton', 'Cancel', 1, 'midright', 
+                                            (window_size[0] // 2 - 30, window_size[1] // 2), (0.5, 1.4), 
+                                    {'name' : 'unready_button'}, (self.game.font_40, 'Black', False))
+        self.quit_button : UiSprite = BaseUiElements.new_button('BlueButton', 'Quit', 1, 'midleft', 
+                                            (window_size[0] // 2 + 30, window_size[1] // 2), (0.5, 1.4), 
+                                    {'name' : 'quit_button'}, (self.game.font_40, 'Black', False))
+        core_object.main_ui.add_multiple([self.ui_message, self.ready_button, self.unready_button, self.quit_button])
+        self.unready_button.visible = False
+
+        self.is_ready : bool = False
+        self.response_timer : Timer = Timer(-1, time_source=core_object.game.game_timer.get_time)
+        
+
+    def main_logic(self, delta : float):
+        if self.response_timer.isover():
+            core_object.menu.alert_player("Other player disconnected!")
+            core_object.end_game()
+
+    def handle_mouse_event(self, event : pygame.Event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            click_pos : tuple[int, int] = event.pos
+            if self.ready_button.rect.collidepoint(click_pos):
+                if self.is_ready:
+                    self.when_unready_clicked()
+                else:
+                    self.when_ready_clicked()
+            elif self.quit_button.rect.collidepoint(click_pos):
+                self.when_quit_clicked()
+    
+    def when_ready_clicked(self):
+        self.is_ready = True
+        self.ready_button.visible = False
+        self.unready_button.visible = True
+        core_object.networker.send_network_message("ready?", self.network_key)
+        if self.response_timer.duration < 0: self.response_timer.set_duration(self.MAX_REPONSE_TIME)
+        self.ui_message.text = "Waiting for other player..."
+    
+    def when_unready_clicked(self):
+        self.is_ready = False
+        self.unready_button.visible = False
+        self.ready_button.visible = True
+        self.ui_message.text = "Do you want a rematch?"
+        self.game.alert_player("Rematch cancelled...", 1.5)
+    
+    def when_quit_clicked(self):
+        core_object.end_game()
+
+    def transition_to_play(self):
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.unbind(event_type, self.network_event_handler)
+        core_object.main_ui.clear_all()
+        self.game.state = PhysicsNetworkedTestGameState(self.game, self.network_key, self.peer_id, self.is_host)
+    
+    def cleanup(self):
+        for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
+                           core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
+            core_object.event_manager.unbind(event_type, self.network_event_handler)
+        core_object.networker.send_network_message("Quitting", self.network_key)
+        core_object.networker.destroy_peer(self.network_key)
+        
+    
+    def network_event_handler(self, event : pygame.Event):
+        if event.type == core_object.networker.NETWORK_RECEIVE_EVENT:
+            self.game.alert_player(f"Received data {event.data}")
+            core_object.log(f"pygame : Received data {event.data}")
+            if event.data == "yes_ready":
+                self.transition_to_play()
+            elif event.data == "Quitting":
+                core_object.end_game()
+                core_object.menu.alert_player("Other player quit!")
+            elif event.data == "ready?":
+                if self.is_ready:
+                    core_object.networker.send_network_message("yes_ready", self.network_key)
+                    self.transition_to_play()
+                else:
+                    core_object.networker.send_network_message("not_ready", self.network_key)
+            elif event.data == "not_ready":
+                self.response_timer.set_duration(-1)
+
+        elif event.type == core_object.networker.NETWORK_ERROR_EVENT:
+            self.game.alert_player(f"Network error occured : {event.info}")
+            core_object.log(f"pygame : Network error occured : {event.info}")
+        elif event.type == core_object.networker.NETWORK_CLOSE_EVENT:
+            self.game.alert_player("Network connection closed")
+            core_object.log(f"pygame : Network connection closed")
+        elif event.type == core_object.networker.NETWORK_DISCONNECT_EVENT:
+            self.game.alert_player("Network disconnected")
+            core_object.log("pygame : Network disconnected")
+        elif event.type == core_object.networker.NETWORK_CONNECTION_EVENT:
+            self.game.alert_player("Network connected")
+            core_object.log("pygame : Network connected")
+
+        
+    def handle_key_event(self, event):
+        return
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                core_object.end_game()
+
 
 class PausedGameState(GameState):
     def __init__(self, game_object : 'Game', previous : GameState):

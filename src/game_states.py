@@ -447,7 +447,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
 
         for message in self.recent_messages:
             if self.is_host:
-                self.parse_and_react_as_host(message)
+                self.parse_and_react_as_host(message, delta)
             else:
                 self.parse_and_react_as_client(message)
         self.recent_messages.clear()
@@ -513,24 +513,31 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             inputs : list[bool] = [left_input, right_input, down_input, up_input, shoot_input]
             message : str = "CLIENT_INPUT|"
             for singular_input in inputs: message += str(int(singular_input))
-            #message += f";{delta}"
-            #core_object.networker.send_network_message(message, self.network_key)
+            message += f";{delta}"
+            core_object.networker.send_network_message(message, self.network_key)
 
         if self.response_timer.isover():
             core_object.end_game()
+            core_object.menu.alert_player("Other player disconnected!")
     
     def parse_and_react_as_host(self, message : str, delta : float = 1):
         if message.startswith("Quitting"):
             core_object.end_game()
             core_object.menu.alert_player("Other player disconnected!")
+        elif message.startswith("LOG_THIS"):
+            parts : list[str] = message.split("|")
+            if len(parts) != 2:
+                return
+            arg : str = parts[1]
+            core_object.log(f"Received message from peer: {arg}")
         elif message.startswith("CLIENT_INPUT"):
             parts : list[str] = message.split("|")
             if len(parts) != 2:
                 return
             args : list[str] = parts[1].split(";")
-            if len(args) != 1:
+            if len(args) != 2:
                 return
-            self.client.receive_input(args[0])
+            self.client.receive_input(args[0], delta, float(args[1]))
         elif message.startswith("SHOT_ACTION"):
             parts : list[str] = message.split("|")
             if len(parts) != 2:
@@ -544,6 +551,12 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         if message.startswith("Quitting"):
             core_object.end_game()
             core_object.menu.alert_player("Other player disconnected!")
+        elif message.startswith("LOG_THIS"):
+            parts : list[str] = message.split("|")
+            if len(parts) != 2:
+                return
+            arg : str = parts[1]
+            core_object.log(f"Received message from peer: {arg}")
         elif message.startswith("VICTORY"):
             self.switch_to_gameover("You win!" if message.endswith("CLIENT") else "You lose!")
         elif message.startswith("SYNC:HOST") or message.startswith("SYNC:CLIENT"):

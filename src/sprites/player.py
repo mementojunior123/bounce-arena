@@ -49,6 +49,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.damage_taken_uisprite : TextSprite
         self.damage_cooldown_timer : Timer
         self.registered_inputs : list
+        self.delta_accumulation : float
 
         self.control_scheme : ControlSchemes
         self.team : Teams
@@ -77,6 +78,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.shot_timer = Timer(-1, core_object.game.game_timer.get_time)
         element.damage_cooldown_timer = Timer(0.1, core_object.game.game_timer.get_time)
         element.registered_inputs = []
+        element.delta_accumulation = 0
 
         element.control_scheme = control_scheme
         element.team = team
@@ -127,21 +129,32 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             self.sim_body.angle = angle
             self.angle = degrees(angle)
 
-    def receive_input(self, input_data : str):
-        buffer_len : int = 2
+    def receive_input(self, input_data : str, local_delta : float = 1, other_delta : float = 1):
+        extra_inputs : int
+        if local_delta < other_delta:
+            input_repater_rate : float = (other_delta / local_delta)
+            self.delta_accumulation += input_repater_rate - 1
+            extra_inputs = int(self.delta_accumulation)
+            self.delta_accumulation -= extra_inputs
+        else:
+            input_repater_rate = 1
+            extra_inputs = 0
+        buffer_len : int = round(2 * input_repater_rate)
+        if buffer_len < 2: buffer_len = 2
         if not self.registered_inputs:
-            self.registered_inputs.append(input_data)
+            self.registered_inputs.extend([input_data] * (extra_inputs + 1))
         elif not buffer_len:
             self.registered_inputs.append(input_data)
             self.registered_inputs = [self.combine_inputs_OR(self.registered_inputs)]
-        if len(self.registered_inputs) >= buffer_len:
+        if len(self.registered_inputs) + 1 + extra_inputs > buffer_len:
+            self.registered_inputs.extend([input_data] * (extra_inputs + 1))
             final_index : int = len(self.registered_inputs) - 1
-            overload_inputs : list[str] = self.registered_inputs[:final_index - buffer_len + 1]
-            tmp = self.registered_inputs[final_index - buffer_len + 1:]
+            overload_inputs : list[str] = self.registered_inputs[:final_index - buffer_len + 2]
+            tmp = self.registered_inputs[final_index - buffer_len + 2:]
             self.registered_inputs = [self.combine_inputs_OR(overload_inputs)] if overload_inputs else []
             self.registered_inputs.extend(tmp)
         else:
-            self.registered_inputs.append(input_data)
+            self.registered_inputs.extend([input_data] * (extra_inputs + 1))
 
     def combine_inputs_OR(self, inputs : list[str]) -> str:
         if not inputs: return "00000"
@@ -402,6 +415,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         self.damage_taken_uisprite = None
         self.damage_cooldown_timer = None
         self.registered_inputs = None
+        self.delta_accumulation = None
 
         self.team = None
         self.control_scheme = None

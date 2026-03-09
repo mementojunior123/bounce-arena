@@ -216,13 +216,14 @@ class NetworkEnterCodeGameState(GameState):
 class NetworkWaitingGameState(GameState):
     PREFIX = "BOUNCE_ARENA_TEST"
     VALID_CHARACTERS : str = "abcdefghijklmnopqrstuvwxyz1234567890"
+    CODE_LENTGH : int = 6
     @staticmethod
     def generate_roomcode() -> str:
-        return "".join(random.choices(NetworkWaitingGameState.VALID_CHARACTERS, k=10))
+        return "".join(random.choices(NetworkWaitingGameState.VALID_CHARACTERS, k=NetworkWaitingGameState.CODE_LENTGH))
     
     @staticmethod
     def validate_roomcode(code : str) -> bool:
-        if len(code) != 10:
+        if len(code) != NetworkWaitingGameState.CODE_LENTGH:
             return False
         if any(c not in NetworkWaitingGameState.VALID_CHARACTERS for c in code):
             return False

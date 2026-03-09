@@ -405,6 +405,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
     def __init__(self, game_object : 'Game', network_key : str, peer_id : str, is_host : bool):
         self.recent_messages : list[str] = []
         self.ping_timer : Timer = Timer(1, core_object.game.game_timer.get_time)
+        self.response_timer : Timer = Timer(5, core_object.game.game_timer.get_time)
         self.is_host : bool = is_host
         self.network_key : str = network_key
         self.peer_id : str = peer_id
@@ -512,10 +513,17 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             inputs : list[bool] = [left_input, right_input, down_input, up_input, shoot_input]
             message : str = "CLIENT_INPUT|"
             for singular_input in inputs: message += str(int(singular_input))
-            core_object.networker.send_network_message(message, self.network_key)      
+            #message += f";{delta}"
+            #core_object.networker.send_network_message(message, self.network_key)
+
+        if self.response_timer.isover():
+            core_object.end_game()
     
-    def parse_and_react_as_host(self, message : str):
-        if message.startswith("CLIENT_INPUT"):
+    def parse_and_react_as_host(self, message : str, delta : float = 1):
+        if message.startswith("Quitting"):
+            core_object.end_game()
+            core_object.menu.alert_player("Other player disconnected!")
+        elif message.startswith("CLIENT_INPUT"):
             parts : list[str] = message.split("|")
             if len(parts) != 2:
                 return
@@ -533,7 +541,10 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             self.client.apply_propulsion(pymunk.Vec2d(0, -1).rotated(float(args[0])))
 
     def parse_and_react_as_client(self, message : str):
-        if message.startswith("VICTORY"):
+        if message.startswith("Quitting"):
+            core_object.end_game()
+            core_object.menu.alert_player("Other player disconnected!")
+        elif message.startswith("VICTORY"):
             self.switch_to_gameover("You win!" if message.endswith("CLIENT") else "You lose!")
         elif message.startswith("SYNC:HOST") or message.startswith("SYNC:CLIENT"):
             parts : list[str] = message.split("|")
@@ -578,6 +589,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         for event_type in [core_object.networker.NETWORK_CLOSE_EVENT, core_object.networker.NETWORK_CONNECTION_EVENT, core_object.networker.NETWORK_DISCONNECT_EVENT,
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.unbind(event_type, self.network_event_handler)
+        core_object.networker.send_network_message("Quitting", self.network_key)
         core_object.networker.destroy_peer(self.network_key)
     
     def network_event_handler(self, event : pygame.Event):
@@ -586,6 +598,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             #self.game.alert_player(f"Received data {event.data}")
             #core_object.log(f"pygame : Received data {event.data}")
             self.recent_messages.append(event.data)
+            self.response_timer.restart()
         elif event.type == core_object.networker.NETWORK_ERROR_EVENT:
             self.game.alert_player(f"Network error occured : {event.info}")
             core_object.log(f"pygame : Network error occured : {event.info}")

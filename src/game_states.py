@@ -393,11 +393,11 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         if self.is_host:
             return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
         else:
-            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NONE, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NETWORK, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
     
     def player_team2_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
         if self.is_host:
-            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NONE, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NETWORK, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
         else:
             return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
     

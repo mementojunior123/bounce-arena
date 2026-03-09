@@ -31,6 +31,7 @@ class ControlSchemes(IntEnum):
     LEFT_SIDE = 2
     RIGHT_SIDE = 3
     BOTH_SIDES = 4
+    NETWORK = 5
 
 
 class Teams(IntEnum):
@@ -165,7 +166,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         return result
 
 
-    def apply_input_before_step(self, delta : float, step_index : int, step_count : int):
+    def apply_network_input_before_step(self, delta : float, step_index : int, step_count : int):
         move_vector : pygame.Vector2 = pygame.Vector2(0,0)
         speed : int = 500
         angular_velocity : float = 0
@@ -315,8 +316,8 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
 
     def before_step(self, delta : float, step_index : int, step_count : int):
-        if self.control_scheme == ControlSchemes.NONE:
-            self.apply_input_before_step(delta, step_index, step_count)
+        if self.control_scheme == ControlSchemes.NETWORK:
+            self.apply_network_input_before_step(delta, step_index, step_count)
             return
         left_side_usable : bool = self.control_scheme in (ControlSchemes.LEFT_SIDE, ControlSchemes.BOTH_SIDES)
         right_side_usable : bool = self.control_scheme in (ControlSchemes.RIGHT_SIDE, ControlSchemes.BOTH_SIDES)

@@ -47,3 +47,8 @@ Version T11 (07-03-2026, 12:16):
 
 Version T12 (07-03-2026, 13:21):
     -Added a rematch system
+
+Version T13 (09-03-2026, 19:55):
+    -Added handling/detection for disconnects
+    -Roomcodes were shortened to 6 characters
+    -Improved networking in cases where the host has a higher FPS than the client

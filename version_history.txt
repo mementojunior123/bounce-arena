@@ -55,3 +55,6 @@ Version T13 (09-03-2026, 19:55):
 
 Version T14 (11-03-2026, 13:32):
     -Added partial mobile support (you cannot join a game on mobile due to mobile text input not being availaible yet)
+
+Version T15 (11-03-2026, 19:23):
+    -Finished mobile support (you can now enter room codes on mobile)

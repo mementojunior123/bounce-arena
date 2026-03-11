@@ -168,7 +168,11 @@ class NetworkEnterCodeGameState(GameState):
                                       text_settings=(Game.font_40, "Black", False))
         self.flashing_text = TextSprite(pygame.Vector2(480, 120), "midtop", 0, "_", text_settings=(Game.font_40, "White", False), text_stroke_settings=("Black", 2))
         self.flash_timer : Timer = Timer(1, self.game.game_timer.get_time)
-        core_object.main_ui.add_multiple([self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text])
+        window_size = core_object.main_display.get_size()
+        self.back_button : UiSprite = BaseUiElements.new_button('BlueButton', 'Back', 1, 'topright', 
+                                            (window_size[0] - 15, 15), (0.5, 1.4), 
+                                    {'name' : 'quit_button'}, (self.game.font_40, 'Black', False))
+        core_object.main_ui.add_multiple([self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text, self.back_button])
         pygame.key.start_text_input()
         core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
         core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
@@ -203,11 +207,16 @@ class NetworkEnterCodeGameState(GameState):
             self.text_entry.text += event.text.lower()
             self.text_entry.visible = True
     
+    def handle_mouse_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.back_button.rect.collidepoint(event.pos):
+                core_object.end_game()
+    
     def tranisition_to_wait(self, room_code : str):
         core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
         core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
         pygame.key.stop_text_input()
-        for sprite in (self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text):
+        for sprite in (self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text, self.back_buttons):
             core_object.main_ui.remove(sprite)
 
         self.game.state = NetworkWaitingGameState(self.game, False, "tmp_" + room_code + "false", NetworkWaitingGameState.PREFIX + room_code)
@@ -249,6 +258,11 @@ class NetworkWaitingGameState(GameState):
                         "waiting_message", text_settings=(self.game.font_40, "White", False),
                         text_stroke_settings=("Black", 2), colorkey=(0, 255, 0))
         core_object.main_ui.add(self.ui_message)
+        window_size = core_object.main_display.get_size()
+        self.back_button : UiSprite = BaseUiElements.new_button('BlueButton', 'Back', 1, 'topright', 
+                                            (window_size[0] - 15, 15), (0.5, 1.4), 
+                                    {'name' : 'quit_button'}, (self.game.font_40, 'Black', False))
+        core_object.main_ui.add(self.back_button)
         
 
     def main_logic(self, delta : float):
@@ -259,6 +273,7 @@ class NetworkWaitingGameState(GameState):
                            core_object.networker.NETWORK_ERROR_EVENT, core_object.networker.NETWORK_RECEIVE_EVENT]:
             core_object.event_manager.unbind(event_type, self.network_event_handler)
         core_object.main_ui.remove(self.ui_message)
+        core_object.main_ui.remove(self.back_button)
         core_object.networker.send_network_message("hello", self.network_key)
         self.game.state = PhysicsNetworkedTestGameState(self.game, self.network_key, self.peer_id, self.is_host)
     
@@ -293,6 +308,11 @@ class NetworkWaitingGameState(GameState):
     def handle_key_event(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                core_object.end_game()
+    
+    def handle_mouse_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.back_button.rect.collidepoint(event.pos):
                 core_object.end_game()
 
 class Network2PlayerTestGameState(NormalGameState):

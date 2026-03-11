@@ -442,6 +442,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             core_object.event_manager.bind(event_type, self.network_event_handler)
 
         self.steps_taken : int = 0
+        core_object.main_ui.add(core_object.fps_sprite)
 
     @staticmethod
     def on_collision(arbiter : pymunk.Arbiter, sim_space : pymunk.Space, data : Any):
@@ -650,7 +651,7 @@ class PhysicsNetworkedTestGameState(NormalGameState):
     
     def handle_key_event(self, event : pygame.Event):
         pass
-    
+
     def pause(self): # disable pausing/unpausing
         pass
 

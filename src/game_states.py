@@ -172,6 +172,14 @@ class NetworkEnterCodeGameState(GameState):
         self.back_button : UiSprite = BaseUiElements.new_button('BlueButton', 'Back', 1, 'topright', 
                                             (window_size[0] - 15, 15), (0.5, 1.4), 
                                     {'name' : 'quit_button'}, (self.game.font_40, 'Black', False))
+        if core_object.used_touch:
+            self.mobile_keyboard : MobileKeyboard = MobileKeyboard((900, 300), pygame.Vector2(480, 400), 60, False)
+            self.mobile_keyboard.add_to_ui()
+            self.mobile_keyboard.make_connections()
+            self.mobile_keyboard.on_key_clicked = self.handle_mobile_keyboard_click
+            self.textsprite2.visible = False
+        else:
+            self.mobile_keyboard = None
         core_object.main_ui.add_multiple([self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text, self.back_button])
         pygame.key.start_text_input()
         core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
@@ -183,47 +191,69 @@ class NetworkEnterCodeGameState(GameState):
         else:
             self.flashing_text.visible = False
         if self.flash_timer.isover(): self.flash_timer.restart()
+    
+    def when_backspace(self):
+        if self.text_entry.text: 
+            self.text_entry.text = self.text_entry.text[:-1]
+        if not self.text_entry.text:
+            self.text_entry.visible = False
+    
+    def when_enter(self):
+        room_code : str = self.text_entry.text
+        if not NetworkWaitingGameState.validate_roomcode(room_code):
+            self.game.alert_player("This code is not valid!")
+        else:
+            self.tranisition_to_wait(room_code)
+    
+    def when_text_typed(self, text : str):
+        self.text_entry.text += text.lower()
+        self.text_entry.visible = True
 
     def handle_key_event(self, event : pygame.Event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 core_object.end_game()
             elif event.key == pygame.K_BACKSPACE:
-                if self.text_entry.text: 
-                    self.text_entry.text = self.text_entry.text[:-1]
-                if not self.text_entry.text:
-                    self.text_entry.visible = False
+                self.when_backspace()
             elif event.key == pygame.K_RETURN:
-                room_code : str = self.text_entry.text
-                if not NetworkWaitingGameState.validate_roomcode(room_code):
-                    self.game.alert_player("This code is not valid!")
-                else:
-                    self.tranisition_to_wait(room_code)
+                self.when_enter()
     
     def handle_textinput_event(self, event : pygame.Event):
         if event.type == pygame.TEXTEDITING:
             pass
         elif event.type == pygame.TEXTINPUT:
-            self.text_entry.text += event.text.lower()
-            self.text_entry.visible = True
-    
+            self.when_text_typed(event.text)
+
     def handle_mouse_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.back_button.rect.collidepoint(event.pos):
                 core_object.end_game()
     
+    def handle_mobile_keyboard_click(self, key : str):
+        print('Tapped', key)
+        if key.lower() == "enter":
+            self.when_enter()
+        elif key.lower() == "del":
+            self.when_backspace()
+        else:
+            self.when_text_typed(key)
+        
+    
     def tranisition_to_wait(self, room_code : str):
         core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
         core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
         pygame.key.stop_text_input()
-        for sprite in (self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text, self.back_buttons):
+        for sprite in (self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text, self.back_button):
             core_object.main_ui.remove(sprite)
+        self.mobile_keyboard.remove_from_ui()
+        self.mobile_keyboard.remove_connections()
 
         self.game.state = NetworkWaitingGameState(self.game, False, "tmp_" + room_code + "false", NetworkWaitingGameState.PREFIX + room_code)
     
     def cleanup(self):
         core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
         core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
+        self.mobile_keyboard.remove_connections()
         pygame.key.stop_text_input()
             
 class NetworkWaitingGameState(GameState):
@@ -868,6 +898,9 @@ def runtime_imports():
 
     global MobileJoystick
     from framework.utils.mobile_joystick import MobileJoystick
+
+    global MobileKeyboard
+    from framework.utils.mobile_keyboard import MobileKeyboard
 
     src.sprites.player.runtime_imports()
     

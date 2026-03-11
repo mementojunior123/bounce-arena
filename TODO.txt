@@ -4,8 +4,6 @@
     This trigger seems much more likely to happen in the online mode
 
 ------Content------
--Proper mobile support
-    Roomcode entry
 
 
 ------Networking------

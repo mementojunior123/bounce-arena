@@ -67,9 +67,11 @@ class PhysicsTestGameState(NormalGameState):
 
     def player_team1_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
         if self.player_count == 1:
-            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, (ControlSchemes.MOBILE if core_object.used_touch else ControlSchemes.BOTH_SIDES), 
+                                                    Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
         else:
-            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.LEFT_SIDE, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, (ControlSchemes.MOBILE if core_object.used_touch else ControlSchemes.LEFT_SIDE),
+                                                     Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
     
     def player_team2_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
         if self.player_count == 1:
@@ -84,6 +86,8 @@ class PhysicsTestGameState(NormalGameState):
         self.simulation_space.gravity = (0, 7.5)
         self.main_collision_handler : CentralCollisionHandler = CentralCollisionHandler(self.simulation_space)
         self.player_count : int = player_count
+        if player_count > 1 and core_object.used_touch:
+            self.game.alert_player("2 players is not properly supported on mobile!")
 
         player_ball_geo : LevelGeometry = {"object_type" : "dynamic_ball", "pos" : [480, 270], "color" : "Blue", "radius" : 20, "bounciness" : 0.9,
                                            "collision_type" : CollisionTypes.TEAM1_BALL, "collision_category" : [CollisionTypes.TEAM1_BALL], 
@@ -392,7 +396,8 @@ class PhysicsNetworkedTestGameState(NormalGameState):
 
     def player_team1_constructor(self, body : pymunk.Body, image : pygame.Surface, cog : pygame.Vector2|None = None) -> "GenericPlayerPhysicsObject":
         if self.is_host:
-            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, (ControlSchemes.MOBILE if core_object.used_touch else ControlSchemes.BOTH_SIDES),
+                                                     Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
         else:
             return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NETWORK, Teams.TEAM_1, self.main_collision_handler, (700, 10), "Blue")
     
@@ -400,7 +405,8 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         if self.is_host:
             return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.NETWORK, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
         else:
-            return GenericPlayerPhysicsObject.spawn(body, image, cog, ControlSchemes.BOTH_SIDES, Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
+            return GenericPlayerPhysicsObject.spawn(body, image, cog, (ControlSchemes.MOBILE if core_object.used_touch else ControlSchemes.BOTH_SIDES),
+                                                     Teams.TEAM_2, self.main_collision_handler, (950, 10), "Green")
     
     SIMULATION_STEP_COUNT : int = 5
     def __init__(self, game_object : 'Game', network_key : str, peer_id : str, is_host : bool):
@@ -476,6 +482,10 @@ class PhysicsNetworkedTestGameState(NormalGameState):
         # Implement sync logic
         if self.is_host:
             # Sync host ball info
+            if self.host.fired_this_frame:
+                shot_angle : float = self.host.sim_body.angle if self.is_host else self.client.sim_body.angle
+                core_object.networker.send_network_message(f"SHOT_ACTION|{shot_angle}", self.network_key)
+                self.host.fired_this_frame = False
             host_sync_message : str = f"SYNC:HOST|{self.host.position.x};{self.host.position.y};"
             host_sync_message += f"{self.host.sim_body.velocity.x};{self.host.sim_body.velocity.y};"
             host_sync_message += f"{self.host.sim_body.angle}"
@@ -505,13 +515,25 @@ class PhysicsNetworkedTestGameState(NormalGameState):
                 core_object.networker.send_network_message("VICTORY:HOST", self.network_key)
         else:
             # Client only sends inputs
-            pressed = pygame.key.get_pressed()
-            left_input : bool = pressed[pygame.K_a] or pressed[pygame.K_LEFT]
-            right_input : bool = pressed[pygame.K_d] or pressed[pygame.K_RIGHT]
-            down_input : bool = pressed[pygame.K_s] or pressed[pygame.K_DOWN]
-            up_input : bool = pressed[pygame.K_w] or pressed[pygame.K_UP]
-            shoot_input : bool = False
-            inputs : list[bool] = [left_input, right_input, down_input, up_input, shoot_input]
+            if self.client.fired_this_frame:
+                shot_angle : float = self.host.sim_body.angle if self.is_host else self.client.sim_body.angle
+                core_object.networker.send_network_message(f"SHOT_ACTION|{shot_angle}", self.network_key)
+                self.client.fired_this_frame = False
+            inputs : list[bool]
+            if self.client.control_scheme != ControlSchemes.MOBILE:
+                pressed = pygame.key.get_pressed()
+                left_input : bool = pressed[pygame.K_a] or pressed[pygame.K_LEFT]
+                right_input : bool = pressed[pygame.K_d] or pressed[pygame.K_RIGHT]
+                down_input : bool = pressed[pygame.K_s] or pressed[pygame.K_DOWN]
+                up_input : bool = pressed[pygame.K_w] or pressed[pygame.K_UP]
+                shoot_input : bool = False
+                inputs = [left_input, right_input, down_input, up_input, shoot_input]
+            else:
+                if not self.client.joystick: 
+                    inputs = [False for _ in range(5)]
+                else:
+                    lock8_direction : pygame.Vector2 = self.client.joystick.get_lock8_pos()
+                    inputs = [lock8_direction.x == -1, lock8_direction.x == 1, lock8_direction.y == 1, lock8_direction.y == -1, False]
             message : str = "CLIENT_INPUT|"
             for singular_input in inputs: message += str(int(singular_input))
             message += f";{delta}"
@@ -627,11 +649,8 @@ class PhysicsNetworkedTestGameState(NormalGameState):
             core_object.log("pygame : Network connected")
     
     def handle_key_event(self, event : pygame.Event):
-        if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_RETURN, pygame.K_l, pygame.K_SPACE):
-                shot_angle : float = self.host.sim_body.angle if self.is_host else self.client.sim_body.angle
-                core_object.networker.send_network_message(f"SHOT_ACTION|{shot_angle}", self.network_key)
-
+        pass
+    
     def pause(self): # disable pausing/unpausing
         pass
 
@@ -825,6 +844,9 @@ def runtime_imports():
 
     global CollisionTypes
     from src.collision_type_constants import CollisionTypes
+
+    global MobileJoystick
+    from framework.utils.mobile_joystick import MobileJoystick
 
     src.sprites.player.runtime_imports()
     

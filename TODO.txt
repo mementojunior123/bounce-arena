@@ -1,10 +1,11 @@
 ------Code organisation------
-...
+-Optimise the code a bit
+    It looks like the lag has a specific trigger that causes a big performance drop
+    This trigger seems much more likely to happen in the online mode
 
 ------Content------
 -Proper mobile support
     Roomcode entry
-    Ingame support
 
 
 ------Networking------

@@ -5,9 +5,11 @@ from framework.core.core import core_object
 from framework.utils.my_timer import Timer
 from framework.utils.pivot_2d import Pivot2D
 from framework.utils.ui.textsprite import TextSprite
-from framework.utils.helpers import ColorType
+from framework.utils.helpers import ColorType, make_circle, make_right_arrow
+from framework.utils.ui.ui_sprite import UiSprite
 from src.sprites.physics_object import BasePhysicsObject
 from src.sprites.projectiles import ProjectilePhysicsObject
+from framework.utils.mobile_joystick import MobileJoystick
 
 
 import pygame
@@ -32,6 +34,7 @@ class ControlSchemes(IntEnum):
     RIGHT_SIDE = 3
     BOTH_SIDES = 4
     NETWORK = 5
+    MOBILE = 6
 
 
 class Teams(IntEnum):
@@ -53,6 +56,9 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         self.control_scheme : ControlSchemes
         self.team : Teams
+        self.joystick : MobileJoystick|None
+        self.mobile_shoot_visual : UiSprite|None
+        self.fired_this_frame : bool
         pass
 
     @classmethod
@@ -84,10 +90,26 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         element.team = team
 
         element.damage_taken = 0
+        element.fired_this_frame = False
         element.register_collisions(main_collison_handler)
         element.damage_taken_uisprite = TextSprite(pygame.Vector2(text_position), "topright", 0, "0%",
                                                    text_settings=(core_object.game.font_40, text_color, False), text_stroke_settings=("Black", 2))
         core_object.main_ui.add_multiple([element.damage_taken_uisprite])
+
+        if control_scheme == ControlSchemes.MOBILE:
+            element.joystick = MobileJoystick(50, 100, pygame.Vector2(100, 440), 0.05)
+            element.joystick.make_connections()
+            element.joystick.add_to_ui()
+            shoot_visual : pygame.Surface = make_circle(50, (200, 200, 200))
+            shoot_visual.set_alpha(140)
+            arrow : pygame.Surface = make_right_arrow(60, 50)
+            arrow.set_alpha(200)
+            shoot_visual.blit(arrow, arrow.get_rect(center = (shoot_visual.get_size()[0] // 2 + 4, shoot_visual.get_size()[1] // 2)))
+            element.mobile_shoot_visual = UiSprite(shoot_visual, shoot_visual.get_rect(bottomright=(900, 500)), -1, "mobile_shoot")
+            core_object.main_ui.add(element.mobile_shoot_visual)
+        else:
+            element.joystick = None
+            element.mobile_shoot_visual = None
 
         cls.unpool(element)
         return element
@@ -326,11 +348,31 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         print_if_not_web("----")
         self.damage_taken_uisprite.text = f"{self.damage_taken:.0f}%"
 
-
+    def apply_mobile_input_before_step(self, delta : float, step_index : int, step_count : int):
+        move_vector : pygame.Vector2 = pygame.Vector2(0,0)
+        speed : int = 500
+        angular_velocity : float = 0
+        angular_velocity = self.current_direction * 0.5
+        if self.joystick:
+            lock8_direction : pygame.Vector2 = self.joystick.get_lock8_pos()
+            inputs = [lock8_direction.x == -1, lock8_direction.x == 1, lock8_direction.y == 1, lock8_direction.y == -1, False]
+            mvs = [pygame.Vector2(-1, 0), pygame.Vector2(1, 0), pygame.Vector2(0, 1.5), pygame.Vector2(0, -1.5)]
+            for i, mv in zip(inputs, mvs):
+                if i: move_vector += mv
+        if move_vector:
+            self.sim_body.apply_force_at_world_point(tuple(move_vector * speed), self.sim_body.position)
+        if angular_velocity:
+            self.sim_body.angular_velocity = angular_velocity * 0.5
+        else:
+            pass
+            self.sim_body.angular_velocity = 0
 
     def before_step(self, delta : float, step_index : int, step_count : int):
         if self.control_scheme == ControlSchemes.NETWORK:
             self.apply_network_input_before_step(delta, step_index, step_count)
+            return
+        elif self.control_scheme == ControlSchemes.MOBILE:
+            self.apply_mobile_input_before_step(delta, step_index, step_count)
             return
         left_side_usable : bool = self.control_scheme in (ControlSchemes.LEFT_SIDE, ControlSchemes.BOTH_SIDES)
         right_side_usable : bool = self.control_scheme in (ControlSchemes.RIGHT_SIDE, ControlSchemes.BOTH_SIDES)
@@ -374,6 +416,7 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
         shot_end : pymunk.Vec2d = self.sim_body.local_to_world((0, -2000))
         shot_direction = shot_direction or (shot_end - shot_origin).normalized()
         src.level_geometry.make_projectile(shot_origin, shot_direction * 120, self.sim_body.space, True if self.team == Teams.TEAM_2 else False)
+        self.fired_this_frame = True
 
     def post_sim(self, delta : float):
         self.position = pygame.Vector2(self.sim_body.position)
@@ -419,6 +462,13 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
 
         self.team = None
         self.control_scheme = None
+        if self.joystick:
+            self.joystick.remove_from_ui()
+            self.joystick.remove_connections()
+        if self.mobile_shoot_visual:
+            core_object.main_ui.remove(self.mobile_shoot_visual)
+        self.mobile_shoot_visual = None
+        self.joystick = None
 
     def draw(self, display : pygame.Surface):
         super().draw(display)
@@ -432,19 +482,32 @@ class GenericPlayerPhysicsObject(BasePhysicsObject, sprite_count = 5):
             if ((event.key == pygame.K_SPACE and left_side_usable)
                 or (event.key in (pygame.K_RETURN, pygame.K_l) and right_side_usable)):
                 self.apply_propulsion()
+    
+    def handle_touch_event(self, event : pygame.Event):
+        if event.type == pygame.FINGERDOWN:
+            if self.mobile_shoot_visual and self.control_scheme == ControlSchemes.MOBILE:
+                if self.mobile_shoot_visual.rect.collidepoint(event.x * core_object.main_display.get_width(), event.y * core_object.main_display.get_height()):
+                    self.apply_propulsion()
 
     @classmethod
     def receive_keydown_event(cls, event : pygame.Event):
         for element in cls.active_elements:
             element.handle_keydown_event(event)
+    
+    @classmethod
+    def receive_touch_event(cls, event : pygame.Event):
+        for e in cls.active_elements:
+            e.handle_touch_event(event)
 
 
 def make_connections():
     core_object.event_manager.bind(pygame.KEYDOWN, GenericPlayerPhysicsObject.receive_keydown_event)
+    core_object.event_manager.bind(pygame.FINGERDOWN, GenericPlayerPhysicsObject.receive_touch_event)
 
 
 def remove_connections():
     core_object.event_manager.unbind(pygame.KEYDOWN, GenericPlayerPhysicsObject.receive_keydown_event)
+    core_object.event_manager.unbind(pygame.FINGERDOWN, GenericPlayerPhysicsObject.receive_touch_event)
 
 
 def runtime_imports():

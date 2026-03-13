@@ -245,15 +245,17 @@ class NetworkEnterCodeGameState(GameState):
         pygame.key.stop_text_input()
         for sprite in (self.textsprite1, self.text_entry, self.textsprite2, self.flashing_text, self.back_button):
             core_object.main_ui.remove(sprite)
-        self.mobile_keyboard.remove_from_ui()
-        self.mobile_keyboard.remove_connections()
+        if self.mobile_keyboard:
+            self.mobile_keyboard.remove_from_ui()
+            self.mobile_keyboard.remove_connections()
 
         self.game.state = NetworkWaitingGameState(self.game, False, "tmp_" + room_code + "false", NetworkWaitingGameState.PREFIX + room_code)
     
     def cleanup(self):
         core_object.event_manager.bind(pygame.TEXTEDITING, self.handle_textinput_event)
         core_object.event_manager.bind(pygame.TEXTINPUT, self.handle_textinput_event)
-        self.mobile_keyboard.remove_connections()
+        if self.mobile_keyboard:
+            self.mobile_keyboard.remove_connections()
         pygame.key.stop_text_input()
             
 class NetworkWaitingGameState(GameState):

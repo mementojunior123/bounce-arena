@@ -28,10 +28,10 @@ Version T06 (02-03-2026, 14:48):
     -Added some map geometry
 
 Version T07 (03-03-2026, 14:48):
-    -Added a very experimental 2 player mode
+    -Added a very experimental online 2 player mode
 
 Version T08 (05-03-2026, 16:30):
-    -Fully implemented the 2 player mode
+    -Fully implemented the online 2 player mode
     -Added a room code system
     -Made a few fixes and improvements to networking and physics
 

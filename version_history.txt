@@ -58,3 +58,6 @@ Version T14 (11-03-2026, 13:32):
 
 Version T15 (11-03-2026, 19:23):
     -Finished mobile support (you can now enter room codes on mobile)
+
+Version T16 (12-03-2026, 20:54):
+    -Fixed a bug that made the game crash

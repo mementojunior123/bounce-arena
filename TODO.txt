@@ -4,7 +4,8 @@
     This trigger seems much more likely to happen in the online mode
 
 ------Content------
-
+-Add a lives system
+-Make the ground sweep less effective
 
 ------Networking------
 -Investigate err.type in PeerJs
